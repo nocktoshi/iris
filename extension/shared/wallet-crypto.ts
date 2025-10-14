@@ -1,17 +1,18 @@
 /**
  * Wallet cryptographic utilities
- * Uses BIP-39 for mnemonic generation
+ * Uses @scure/bip39 for mnemonic generation (browser-native, no Buffer polyfill needed)
  * TODO: Replace address derivation with Nockchain WASM integration
  */
 
-import * as bip39 from 'bip39';
+import { generateMnemonic as generateMnemonicScure, validateMnemonic as validateMnemonicScure } from '@scure/bip39';
+import { wordlist } from '@scure/bip39/wordlists/english.js';
 
 /**
  * Generates a BIP-39 mnemonic (24 words)
  * Uses 256 bits of entropy for maximum security
  */
 export function generateMnemonic(): string {
-  return bip39.generateMnemonic(256);
+  return generateMnemonicScure(wordlist, 256);
 }
 
 /**
@@ -20,7 +21,7 @@ export function generateMnemonic(): string {
  * @returns true if valid, false otherwise
  */
 export function validateMnemonic(mnemonic: string): boolean {
-  return bip39.validateMnemonic(mnemonic);
+  return validateMnemonicScure(mnemonic, wordlist);
 }
 
 /**
