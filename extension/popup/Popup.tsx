@@ -1,138 +1,61 @@
 /**
- * Popup UI: Main React component for wallet interactions
+ * Popup UI: Main router component
  */
 
-import { useState, useEffect } from 'react';
-import { INTERNAL_METHODS, PROVIDER_METHODS } from '../shared/constants';
+import { useEffect } from 'react';
+import { useStore } from './store';
 
-/**
- * Send a message to the service worker
- */
-function send(method: string, params?: any[]): Promise<any> {
-  return chrome.runtime.sendMessage({ payload: { method, params } });
-}
+// Screen components
+import { LockedScreen } from './screens/LockedScreen';
+import { OnboardingStartScreen } from './screens/OnboardingStartScreen';
+import { OnboardingCreateScreen } from './screens/OnboardingCreateScreen';
+import { HomeScreen } from './screens/HomeScreen';
+import {
+  OnboardingSuccessScreen,
+  OnboardingImportScreen,
+  SendScreen,
+  ReceiveScreen,
+  SettingsScreen,
+} from './screens/PlaceholderScreens';
 
 export function Popup() {
-  const [locked, setLocked] = useState(true);
-  const [address, setAddress] = useState<string>('');
-  const [password, setPassword] = useState('');
+  const { currentScreen, initialize } = useStore();
 
-  /**
-   * Load wallet state on mount
-   */
+  // Initialize app on mount
   useEffect(() => {
-    loadState();
-  }, []);
+    initialize();
+  }, [initialize]);
 
-  /**
-   * Fetch and update wallet state
-   */
-  async function loadState() {
-    const state = await send(INTERNAL_METHODS.GET_STATE);
-    setLocked(state.locked);
-    setAddress(state.address || '(none)');
+  // Simple router - render screen based on current state
+  switch (currentScreen) {
+    // Onboarding
+    case 'onboarding-start':
+      return <OnboardingStartScreen />;
+    case 'onboarding-create':
+      return <OnboardingCreateScreen />;
+    case 'onboarding-success':
+      return <OnboardingSuccessScreen />;
+    case 'onboarding-import':
+      return <OnboardingImportScreen />;
+
+    // Main app
+    case 'home':
+      return <HomeScreen />;
+    case 'settings':
+      return <SettingsScreen />;
+
+    // Transactions
+    case 'send':
+      return <SendScreen />;
+    case 'receive':
+      return <ReceiveScreen />;
+
+    // System
+    case 'locked':
+      return <LockedScreen />;
+
+    // Default fallback
+    default:
+      return <div>Unknown screen: {currentScreen}</div>;
   }
-
-  /**
-   * Handle unlock button click
-   */
-  async function handleUnlock() {
-    if (!password) {
-      alert('Please enter a password');
-      return;
-    }
-
-    const result = await send(INTERNAL_METHODS.UNLOCK, [password]);
-
-    if (result?.error) {
-      alert(`Error: ${result.error}`);
-    } else {
-      setPassword('');
-      await loadState();
-    }
-  }
-
-  /**
-   * Handle setup button click
-   */
-  async function handleSetup() {
-    if (!password) {
-      alert('Please enter a password');
-      return;
-    }
-
-    const result = await send(INTERNAL_METHODS.SETUP, [password]);
-
-    if (result?.error) {
-      alert(`Error: ${result.error}`);
-    } else {
-      alert(`Vault created!\nAddress: ${result.address}\nPassword: ${password}`);
-      setPassword('');
-      await loadState();
-    }
-  }
-
-  /**
-   * Handle lock button click
-   */
-  async function handleLock() {
-    await send(INTERNAL_METHODS.LOCK);
-    await loadState();
-  }
-
-  /**
-   * Handle send button click
-   */
-  async function handleSend() {
-    // TODO: Add proper UI for recipient address and amount input
-    // For now, sends placeholder transaction to test flow
-    const result = await send(PROVIDER_METHODS.SEND_TRANSACTION, [
-      { to: '1'.repeat(132), amount: '1' }
-    ]);
-
-    if (result?.txid) {
-      alert(`Transaction sent!\nTxID: ${result.txid}`);
-    } else if (result?.error) {
-      alert(`Error: ${result.error}`);
-    }
-  }
-
-  return (
-    <div className="w-[357px] h-[600px] p-4">
-      <h2 className="text-xl font-semibold mb-4">Fort Nock</h2>
-
-      {locked ? (
-        <div id="locked">
-          <input
-            id="password"
-            type="password"
-            placeholder="Password"
-            className="input-field my-2"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleUnlock()}
-          />
-          <button onClick={handleUnlock} className="btn-primary my-2">
-            Unlock
-          </button>
-          <button onClick={handleSetup} className="btn-secondary my-2">
-            Create Wallet
-          </button>
-        </div>
-      ) : (
-        <div id="unlocked">
-          <div className="address-display">
-            <div className="label">Address:</div>
-            <div id="addr">{address}</div>
-          </div>
-          <button onClick={handleSend} className="btn-primary my-2">
-            Send
-          </button>
-          <button onClick={handleLock} className="btn-secondary my-2">
-            Lock
-          </button>
-        </div>
-      )}
-    </div>
-  );
 }

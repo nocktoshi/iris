@@ -1,0 +1,142 @@
+/**
+ * Zustand store for popup UI state and navigation
+ */
+
+import { create } from 'zustand';
+import { INTERNAL_METHODS } from '../shared/constants';
+
+/**
+ * All available screens in the wallet
+ */
+export type Screen =
+  // Onboarding flow
+  | 'onboarding-start'
+  | 'onboarding-create'
+  | 'onboarding-verify-1'
+  | 'onboarding-verify-2'
+  | 'onboarding-verify-3'
+  | 'onboarding-success'
+  | 'onboarding-import'
+
+  // Main app screens
+  | 'home'
+  | 'settings'
+
+  // Transaction screens
+  | 'send'
+  | 'receive'
+  | 'tx-details'
+
+  // System
+  | 'locked';
+
+/**
+ * Wallet state synced from background service worker
+ */
+interface WalletState {
+  locked: boolean;
+  address: string | null;
+}
+
+/**
+ * Main app store
+ */
+interface AppStore {
+  // Navigation
+  currentScreen: Screen;
+  navigate: (screen: Screen) => void;
+
+  // Navigation history for back button
+  history: Screen[];
+  goBack: () => void;
+
+  // Wallet state (synced from service worker)
+  wallet: WalletState;
+  syncWallet: (state: WalletState) => void;
+
+  // Initialize app - checks vault status and navigates appropriately
+  initialize: () => Promise<void>;
+}
+
+/**
+ * Helper to send messages to service worker
+ */
+async function send(method: string, params?: any[]): Promise<any> {
+  return chrome.runtime.sendMessage({ payload: { method, params } });
+}
+
+/**
+ * Create the store
+ */
+export const useStore = create<AppStore>((set, get) => ({
+  // Initial state
+  currentScreen: 'locked',
+  history: [],
+
+  wallet: {
+    locked: true,
+    address: null,
+  },
+
+  // Navigate to a new screen
+  navigate: (screen: Screen) => {
+    const current = get().currentScreen;
+    set({
+      currentScreen: screen,
+      history: [...get().history, current],
+    });
+  },
+
+  // Go back to previous screen
+  goBack: () => {
+    const history = get().history;
+    if (history.length === 0) return;
+
+    const previous = history[history.length - 1];
+    set({
+      currentScreen: previous,
+      history: history.slice(0, -1),
+    });
+  },
+
+  // Sync wallet state from background
+  syncWallet: (state: WalletState) => {
+    set({ wallet: state });
+  },
+
+  // Initialize app on load
+  initialize: async () => {
+    try {
+      // Get current vault state from service worker
+      const state = await send(INTERNAL_METHODS.GET_STATE);
+
+      const walletState: WalletState = {
+        locked: state.locked,
+        address: state.address || null,
+      };
+
+      // Determine initial screen
+      let initialScreen: Screen;
+
+      if (!walletState.address) {
+        // No vault exists - start onboarding
+        initialScreen = 'onboarding-start';
+      } else if (walletState.locked) {
+        // Vault exists but locked
+        initialScreen = 'locked';
+      } else {
+        // Vault unlocked - go to home
+        initialScreen = 'home';
+      }
+
+      set({
+        wallet: walletState,
+        currentScreen: initialScreen,
+      });
+    } catch (error) {
+      console.error('Failed to initialize app:', error);
+      // Default to locked screen on error
+      set({ currentScreen: 'locked' });
+    }
+  },
+}));
