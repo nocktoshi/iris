@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Fort Nock",
+  "version": "0.0.1",
+  "description": "Fort Nock - Chrome Wallet Extension for Nockchain",
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_title": "Fort Nock"
+  },
+  "background": {
+    "service_worker": "background/index.ts",
+    "type": "module"
+  },
+  "permissions": ["storage", "alarms", "scripting"],
+  "content_scripts": [
+    {
+      "matches": ["https://*/*"],
+      "js": ["content/index.ts"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["inpage/index.ts"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
