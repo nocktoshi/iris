@@ -11,28 +11,34 @@ import { ScreenContainer } from '../components/ScreenContainer';
 export function OnboardingCreateScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
   const { navigate, syncWallet, setOnboardingMnemonic } = useStore();
 
   async function handleCreate() {
-    if (!password) {
-      alert('Please enter a password');
-      return;
-    }
+    // Clear previous errors
+    setError('');
 
-    if (password !== confirmPassword) {
-      alert('Passwords do not match');
+    // Validate password
+    if (!password) {
+      setError('Please enter a password');
       return;
     }
 
     if (password.length < UI_CONSTANTS.MIN_PASSWORD_LENGTH) {
-      alert(`Password must be at least ${UI_CONSTANTS.MIN_PASSWORD_LENGTH} characters`);
+      setError(`Password must be at least ${UI_CONSTANTS.MIN_PASSWORD_LENGTH} characters`);
       return;
     }
 
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    // Create wallet
     const result = await send(INTERNAL_METHODS.SETUP, [password]);
 
     if (result?.error) {
-      alert(`Error: ${result.error}`);
+      setError(`Error: ${result.error}`);
     } else {
       // Store mnemonic temporarily for backup/verification flow
       setOnboardingMnemonic(result.mnemonic);
@@ -54,7 +60,10 @@ export function OnboardingCreateScreen() {
         placeholder="Password"
         className="input-field my-2"
         value={password}
-        onChange={(e) => setPassword(e.target.value)}
+        onChange={(e) => {
+          setPassword(e.target.value);
+          setError(''); // Clear error on input
+        }}
       />
 
       <input
@@ -62,9 +71,18 @@ export function OnboardingCreateScreen() {
         placeholder="Confirm Password"
         className="input-field my-2"
         value={confirmPassword}
-        onChange={(e) => setConfirmPassword(e.target.value)}
+        onChange={(e) => {
+          setConfirmPassword(e.target.value);
+          setError(''); // Clear error on input
+        }}
         onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
       />
+
+      {error && (
+        <div className="bg-red-900/20 border border-red-500/50 rounded p-3 my-2">
+          <p className="text-sm text-red-300">{error}</p>
+        </div>
+      )}
 
       <button onClick={handleCreate} className="btn-primary my-2">
         Create Wallet
