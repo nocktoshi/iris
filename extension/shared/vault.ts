@@ -34,7 +34,7 @@ export class Vault {
   async setup(
     password: string,
     mnemonic?: string
-  ): Promise<{ ok: boolean; address: string } | { error: string }> {
+  ): Promise<{ ok: boolean; address: string; mnemonic: string } | { error: string }> {
     // Generate or validate mnemonic
     const words = mnemonic ? mnemonic.trim() : generateMnemonic();
 
@@ -65,7 +65,7 @@ export class Vault {
     });
     this.state = { locked: true, address: addr, enc: encData };
 
-    return { ok: true, address: addr };
+    return { ok: true, address: addr, mnemonic: words };
   }
 
   /**

@@ -13,7 +13,7 @@ function send(method: string, params?: any[]): Promise<any> {
 export function OnboardingCreateScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const { navigate, syncWallet } = useStore();
+  const { navigate, syncWallet, setOnboardingMnemonic } = useStore();
 
   async function handleCreate() {
     if (!password) {
@@ -36,9 +36,10 @@ export function OnboardingCreateScreen() {
     if (result?.error) {
       alert(`Error: ${result.error}`);
     } else {
-      // TODO: Show mnemonic for backup before completing
+      // Store mnemonic temporarily for backup/verification flow
+      setOnboardingMnemonic(result.mnemonic);
       syncWallet({ locked: false, address: result.address });
-      navigate('onboarding-success');
+      navigate('onboarding-backup');
     }
   }
 

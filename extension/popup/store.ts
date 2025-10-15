@@ -12,9 +12,8 @@ export type Screen =
   // Onboarding flow
   | 'onboarding-start'
   | 'onboarding-create'
-  | 'onboarding-verify-1'
-  | 'onboarding-verify-2'
-  | 'onboarding-verify-3'
+  | 'onboarding-backup'
+  | 'onboarding-verify'
   | 'onboarding-success'
   | 'onboarding-import'
 
@@ -54,6 +53,10 @@ interface AppStore {
   wallet: WalletState;
   syncWallet: (state: WalletState) => void;
 
+  // Temporary onboarding state (cleared after completion)
+  onboardingMnemonic: string | null;
+  setOnboardingMnemonic: (mnemonic: string | null) => void;
+
   // Initialize app - checks vault status and navigates appropriately
   initialize: () => Promise<void>;
 }
@@ -77,6 +80,8 @@ export const useStore = create<AppStore>((set, get) => ({
     locked: true,
     address: null,
   },
+
+  onboardingMnemonic: null,
 
   // Navigate to a new screen
   navigate: (screen: Screen) => {
@@ -102,6 +107,11 @@ export const useStore = create<AppStore>((set, get) => ({
   // Sync wallet state from background
   syncWallet: (state: WalletState) => {
     set({ wallet: state });
+  },
+
+  // Set temporary mnemonic during onboarding
+  setOnboardingMnemonic: (mnemonic: string | null) => {
+    set({ onboardingMnemonic: mnemonic });
   },
 
   // Initialize app on load

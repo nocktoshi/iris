@@ -9,6 +9,8 @@ import { useStore } from './store';
 import { LockedScreen } from './screens/LockedScreen';
 import { OnboardingStartScreen } from './screens/OnboardingStartScreen';
 import { OnboardingCreateScreen } from './screens/OnboardingCreateScreen';
+import { OnboardingBackupScreen } from './screens/OnboardingBackupScreen';
+import { OnboardingVerifyScreen } from './screens/OnboardingVerifyScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import {
   OnboardingSuccessScreen,
@@ -33,6 +35,10 @@ export function Popup() {
       return <OnboardingStartScreen />;
     case 'onboarding-create':
       return <OnboardingCreateScreen />;
+    case 'onboarding-backup':
+      return <OnboardingBackupScreen />;
+    case 'onboarding-verify':
+      return <OnboardingVerifyScreen />;
     case 'onboarding-success':
       return <OnboardingSuccessScreen />;
     case 'onboarding-import':
