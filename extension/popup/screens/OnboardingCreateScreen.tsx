@@ -3,12 +3,10 @@
  */
 
 import { useState } from 'react';
-import { INTERNAL_METHODS } from '../../shared/constants';
+import { INTERNAL_METHODS, UI_CONSTANTS } from '../../shared/constants';
 import { useStore } from '../store';
-
-function send(method: string, params?: any[]): Promise<any> {
-  return chrome.runtime.sendMessage({ payload: { method, params } });
-}
+import { send } from '../utils/messaging';
+import { ScreenContainer } from '../components/ScreenContainer';
 
 export function OnboardingCreateScreen() {
   const [password, setPassword] = useState('');
@@ -26,8 +24,8 @@ export function OnboardingCreateScreen() {
       return;
     }
 
-    if (password.length < 8) {
-      alert('Password must be at least 8 characters');
+    if (password.length < UI_CONSTANTS.MIN_PASSWORD_LENGTH) {
+      alert(`Password must be at least ${UI_CONSTANTS.MIN_PASSWORD_LENGTH} characters`);
       return;
     }
 
@@ -44,7 +42,7 @@ export function OnboardingCreateScreen() {
   }
 
   return (
-    <div className="w-[357px] h-[600px] p-4">
+    <ScreenContainer>
       <h2 className="text-xl font-semibold mb-4">Create Wallet</h2>
 
       <p className="text-sm text-gray-400 mb-6">
@@ -75,6 +73,6 @@ export function OnboardingCreateScreen() {
       <button onClick={() => navigate('onboarding-start')} className="btn-secondary my-2">
         Back
       </button>
-    </div>
+    </ScreenContainer>
   );
 }

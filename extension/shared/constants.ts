@@ -105,6 +105,20 @@ export const MESSAGE_TARGETS = {
 export const AUTOLOCK_MINUTES = 15;
 
 /**
+ * UI Constants - Dimensions and constraints
+ */
+export const UI_CONSTANTS = {
+  /** Extension popup width in pixels */
+  POPUP_WIDTH: 357,
+  /** Extension popup height in pixels */
+  POPUP_HEIGHT: 600,
+  /** Minimum password length */
+  MIN_PASSWORD_LENGTH: 8,
+  /** Number of words in BIP-39 mnemonic */
+  MNEMONIC_WORD_COUNT: 24,
+} as const;
+
+/**
  * Type for all valid RPC method names
  */
 export type RPCMethod = (typeof RPC_METHODS)[keyof typeof RPC_METHODS];

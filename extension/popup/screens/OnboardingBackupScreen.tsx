@@ -3,6 +3,7 @@
  */
 
 import { useStore } from '../store';
+import { ScreenContainer } from '../components/ScreenContainer';
 
 export function OnboardingBackupScreen() {
   const { onboardingMnemonic, navigate } = useStore();
@@ -10,13 +11,13 @@ export function OnboardingBackupScreen() {
   if (!onboardingMnemonic) {
     // Should never happen, but handle gracefully
     return (
-      <div className="w-[357px] h-[600px] p-4">
+      <ScreenContainer>
         <h2 className="text-xl font-semibold mb-4 text-red-500">Error</h2>
         <p className="text-sm text-gray-400">No mnemonic found. Please restart onboarding.</p>
         <button onClick={() => navigate('onboarding-start')} className="btn-primary my-2">
           Back to Start
         </button>
-      </div>
+      </ScreenContainer>
     );
   }
 
@@ -27,7 +28,7 @@ export function OnboardingBackupScreen() {
   }
 
   return (
-    <div className="w-[357px] h-[600px] p-4 flex flex-col">
+    <ScreenContainer className="flex flex-col">
       <h2 className="text-xl font-semibold mb-2">Secret Recovery Phrase</h2>
 
       <div className="bg-red-900/20 border border-red-500/50 rounded p-3 mb-4">
@@ -54,6 +55,6 @@ export function OnboardingBackupScreen() {
       <button onClick={handleContinue} className="btn-primary">
         I've Written It Down
       </button>
-    </div>
+    </ScreenContainer>
   );
 }

@@ -5,10 +5,8 @@
 import { useState } from 'react';
 import { INTERNAL_METHODS } from '../../shared/constants';
 import { useStore } from '../store';
-
-function send(method: string, params?: any[]): Promise<any> {
-  return chrome.runtime.sendMessage({ payload: { method, params } });
-}
+import { send } from '../utils/messaging';
+import { ScreenContainer } from '../components/ScreenContainer';
 
 export function LockedScreen() {
   const [password, setPassword] = useState('');
@@ -32,7 +30,7 @@ export function LockedScreen() {
   }
 
   return (
-    <div className="w-[357px] h-[600px] p-4">
+    <ScreenContainer>
       <h2 className="text-xl font-semibold mb-4">Fort Nock</h2>
 
       <div>
@@ -48,6 +46,6 @@ export function LockedScreen() {
           Unlock
         </button>
       </div>
-    </div>
+    </ScreenContainer>
   );
 }

@@ -4,10 +4,8 @@
 
 import { INTERNAL_METHODS } from '../../shared/constants';
 import { useStore } from '../store';
-
-function send(method: string, params?: any[]): Promise<any> {
-  return chrome.runtime.sendMessage({ payload: { method, params } });
-}
+import { send } from '../utils/messaging';
+import { ScreenContainer } from '../components/ScreenContainer';
 
 export function HomeScreen() {
   const { wallet, navigate, syncWallet } = useStore();
@@ -19,7 +17,7 @@ export function HomeScreen() {
   }
 
   return (
-    <div className="w-[357px] h-[600px] p-4">
+    <ScreenContainer>
       <h2 className="text-xl font-semibold mb-4">Fort Nock</h2>
 
       <div className="address-display">
@@ -48,6 +46,6 @@ export function HomeScreen() {
       <button onClick={handleLock} className="btn-secondary my-2">
         Lock
       </button>
-    </div>
+    </ScreenContainer>
   );
 }

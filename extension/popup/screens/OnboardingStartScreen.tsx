@@ -3,12 +3,13 @@
  */
 
 import { useStore } from '../store';
+import { ScreenContainer } from '../components/ScreenContainer';
 
 export function OnboardingStartScreen() {
   const { navigate } = useStore();
 
   return (
-    <div className="w-[357px] h-[600px] p-4">
+    <ScreenContainer>
       <h2 className="text-xl font-semibold mb-4">Welcome to Fort Nock</h2>
 
       <p className="text-sm text-gray-400 mb-6">
@@ -28,6 +29,6 @@ export function OnboardingStartScreen() {
       >
         Import Existing Wallet
       </button>
-    </div>
+    </ScreenContainer>
   );
 }

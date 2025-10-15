@@ -3,12 +3,13 @@
  */
 
 import { useStore } from '../store';
+import { ScreenContainer } from '../components/ScreenContainer';
 
 export function OnboardingSuccessScreen() {
   const { navigate } = useStore();
 
   return (
-    <div className="w-[357px] h-[600px] p-4">
+    <ScreenContainer>
       <h2 className="text-xl font-semibold mb-4">Wallet Created!</h2>
       <p className="text-sm text-gray-400 mb-6">
         Your wallet has been created successfully
@@ -16,7 +17,7 @@ export function OnboardingSuccessScreen() {
       <button onClick={() => navigate('home')} className="btn-primary">
         Get Started
       </button>
-    </div>
+    </ScreenContainer>
   );
 }
 
@@ -24,7 +25,7 @@ export function OnboardingImportScreen() {
   const { navigate } = useStore();
 
   return (
-    <div className="w-[357px] h-[600px] p-4">
+    <ScreenContainer>
       <h2 className="text-xl font-semibold mb-4">Import Wallet</h2>
       <p className="text-sm text-gray-400 mb-6">
         Enter your 24-word recovery phrase
@@ -33,7 +34,7 @@ export function OnboardingImportScreen() {
       <button onClick={() => navigate('onboarding-start')} className="btn-secondary">
         Back
       </button>
-    </div>
+    </ScreenContainer>
   );
 }
 
@@ -41,7 +42,7 @@ export function SendScreen() {
   const { navigate } = useStore();
 
   return (
-    <div className="w-[357px] h-[600px] p-4">
+    <ScreenContainer>
       <h2 className="text-xl font-semibold mb-4">Send NOCK</h2>
       <p className="text-sm text-gray-400 mb-6">
         Send transaction (placeholder)
@@ -50,7 +51,7 @@ export function SendScreen() {
       <button onClick={() => navigate('home')} className="btn-secondary">
         Back
       </button>
-    </div>
+    </ScreenContainer>
   );
 }
 
@@ -58,7 +59,7 @@ export function ReceiveScreen() {
   const { navigate, wallet } = useStore();
 
   return (
-    <div className="w-[357px] h-[600px] p-4">
+    <ScreenContainer>
       <h2 className="text-xl font-semibold mb-4">Receive NOCK</h2>
       <div className="address-display my-4">
         <div className="label">Your Address:</div>
@@ -68,7 +69,7 @@ export function ReceiveScreen() {
       <button onClick={() => navigate('home')} className="btn-secondary">
         Back
       </button>
-    </div>
+    </ScreenContainer>
   );
 }
 
@@ -76,7 +77,7 @@ export function SettingsScreen() {
   const { navigate } = useStore();
 
   return (
-    <div className="w-[357px] h-[600px] p-4">
+    <ScreenContainer>
       <h2 className="text-xl font-semibold mb-4">Settings</h2>
       <p className="text-sm text-gray-400 mb-6">
         Settings (placeholder)
@@ -85,6 +86,6 @@ export function SettingsScreen() {
       <button onClick={() => navigate('home')} className="btn-secondary">
         Back
       </button>
-    </div>
+    </ScreenContainer>
   );
 }

@@ -4,9 +4,10 @@
 
 import { useState, useEffect } from 'react';
 import { useStore } from '../store';
+import { ScreenContainer } from '../components/ScreenContainer';
 
 export function OnboardingVerifyScreen() {
-  const { onboardingMnemonic, navigate, setOnboardingMnemonic, syncWallet } = useStore();
+  const { onboardingMnemonic, navigate, setOnboardingMnemonic } = useStore();
   const [selectedWord, setSelectedWord] = useState<string>('');
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [testIndex, setTestIndex] = useState<number>(0);
@@ -35,13 +36,13 @@ export function OnboardingVerifyScreen() {
 
   if (!onboardingMnemonic) {
     return (
-      <div className="w-[357px] h-[600px] p-4">
+      <ScreenContainer>
         <h2 className="text-xl font-semibold mb-4 text-red-500">Error</h2>
         <p className="text-sm text-gray-400">No mnemonic found. Please restart onboarding.</p>
         <button onClick={() => navigate('onboarding-start')} className="btn-primary my-2">
           Back to Start
         </button>
-      </div>
+      </ScreenContainer>
     );
   }
 
@@ -67,7 +68,7 @@ export function OnboardingVerifyScreen() {
   }
 
   return (
-    <div className="w-[357px] h-[600px] p-4 flex flex-col">
+    <ScreenContainer className="flex flex-col">
       <h2 className="text-xl font-semibold mb-4">Verify Recovery Phrase</h2>
 
       <p className="text-sm text-gray-400 mb-6">
@@ -118,6 +119,6 @@ export function OnboardingVerifyScreen() {
           Back to Recovery Phrase
         </button>
       </div>
-    </div>
+    </ScreenContainer>
   );
 }
