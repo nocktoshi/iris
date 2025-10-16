@@ -2,10 +2,11 @@
  * Onboarding Import Screen - Import wallet from mnemonic
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useStore } from '../../store';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { Alert } from '../../components/Alert';
+import { useAutoFocus } from '../../hooks/useAutoFocus';
 import { INTERNAL_METHODS, UI_CONSTANTS, ERROR_CODES } from '../../../shared/constants';
 import { send } from '../../utils/messaging';
 
@@ -17,11 +18,7 @@ export function ImportScreen() {
   const [error, setError] = useState('');
   const [step, setStep] = useState<'mnemonic' | 'password'>('mnemonic');
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  useEffect(() => {
-    // Focus first input on mount
-    inputRefs.current[0]?.focus();
-  }, []);
+  const firstInputRef = useAutoFocus<HTMLInputElement>(); // Auto-focus first input on mount
 
   function handleWordChange(index: number, value: string) {
     const trimmedValue = value.trim().toLowerCase();
@@ -180,7 +177,13 @@ export function ImportScreen() {
             <div key={index} className="flex items-center gap-2">
               <span className="text-xs text-gray-500 w-6">{index + 1}.</span>
               <input
-                ref={(el) => { inputRefs.current[index] = el; }}
+                ref={(el) => {
+                  inputRefs.current[index] = el;
+                  if (index === 0) {
+                    // @ts-ignore - Assign to auto-focus ref
+                    firstInputRef.current = el;
+                  }
+                }}
                 type="text"
                 className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500"
                 value={word}
