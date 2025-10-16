@@ -300,6 +300,42 @@ export class Vault {
   }
 
   /**
+   * Gets the mnemonic phrase (only when unlocked)
+   * Requires password verification for security
+   */
+  async getMnemonic(password: string): Promise<{ ok: boolean; mnemonic: string } | { error: string }> {
+    if (this.state.locked) {
+      return { error: ERROR_CODES.LOCKED };
+    }
+
+    if (!this.state.enc) {
+      return { error: ERROR_CODES.NO_VAULT };
+    }
+
+    // Re-verify password before revealing mnemonic
+    try {
+      const { key } = await deriveKeyPBKDF2(
+        password,
+        new Uint8Array(this.state.enc.kdf.salt)
+      );
+
+      const pt = await decryptGCM(
+        key,
+        new Uint8Array(this.state.enc.cipher.iv),
+        new Uint8Array(this.state.enc.cipher.ct)
+      ).catch(() => null);
+
+      if (!pt) {
+        return { error: ERROR_CODES.BAD_PASSWORD };
+      }
+
+      return { ok: true, mnemonic: pt };
+    } catch (err) {
+      return { error: ERROR_CODES.BAD_PASSWORD };
+    }
+  }
+
+  /**
    * Signs a message
    * TODO: Replace with real signing using WASM and derived private key
    */

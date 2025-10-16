@@ -22,6 +22,7 @@ export type Screen =
   // Main app screens
   | 'home'
   | 'settings'
+  | 'recovery-phrase'
 
   // Transaction screens
   | 'send'

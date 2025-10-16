@@ -50,6 +50,12 @@ export const INTERNAL_METHODS = {
 
   /** Rename an account */
   RENAME_ACCOUNT: "wallet:renameAccount",
+
+  /** Get mnemonic phrase (requires password verification) */
+  GET_MNEMONIC: "wallet:getMnemonic",
+
+  /** Get auto-lock timeout setting */
+  GET_AUTO_LOCK: "wallet:getAutoLock",
 } as const;
 
 /**
@@ -84,6 +90,9 @@ export const ERROR_CODES = {
 
   /** Unsupported RPC method requested */
   METHOD_NOT_SUPPORTED: "METHOD_NOT_SUPPORTED",
+
+  /** Unauthorized: internal methods can only be called from popup/extension pages */
+  UNAUTHORIZED: "UNAUTHORIZED",
 } as const;
 
 /**
@@ -98,6 +107,9 @@ export const STORAGE_KEYS = {
 
   /** Current active account index */
   CURRENT_ACCOUNT_INDEX: "currentAccountIndex",
+
+  /** Auto-lock timeout in minutes */
+  AUTO_LOCK_MINUTES: "autoLockMinutes",
 } as const;
 
 /**
@@ -121,6 +133,26 @@ export const MESSAGE_TARGETS = {
  */
 /** Default auto-lock timeout in minutes */
 export const AUTOLOCK_MINUTES = 15;
+
+/**
+ * User Activity Methods - Methods that count as user activity for auto-lock timer
+ * Only these methods reset the lastActivity timestamp. Passive/polling methods
+ * (like GET_STATE, GET_ACCOUNTS, etc.) do NOT reset the timer.
+ */
+export const USER_ACTIVITY_METHODS = new Set([
+  // Provider methods (user-initiated actions from dApps)
+  PROVIDER_METHODS.REQUEST_ACCOUNTS,
+  PROVIDER_METHODS.SIGN_MESSAGE,
+  PROVIDER_METHODS.SEND_TRANSACTION,
+
+  // Internal methods (user actions in the UI)
+  INTERNAL_METHODS.UNLOCK,
+  INTERNAL_METHODS.SWITCH_ACCOUNT,
+  INTERNAL_METHODS.CREATE_ACCOUNT,
+  INTERNAL_METHODS.RENAME_ACCOUNT,
+  INTERNAL_METHODS.SET_AUTO_LOCK,
+  INTERNAL_METHODS.GET_MNEMONIC, // Viewing recovery phrase is user activity
+]);
 
 /**
  * UI Constants - Dimensions and constraints

@@ -11,22 +11,53 @@ import {
   ERROR_CODES,
   ALARM_NAMES,
   AUTOLOCK_MINUTES,
+  STORAGE_KEYS,
+  USER_ACTIVITY_METHODS,
 } from "../shared/constants";
 
 const vault = new Vault();
 let lastActivity = Date.now();
 let autoLockMinutes = AUTOLOCK_MINUTES;
 
-// Schedule auto-lock alarm
-scheduleAlarm();
+// Initialize auto-lock setting and schedule alarm
+(async () => {
+  const stored = await chrome.storage.local.get([
+    STORAGE_KEYS.AUTO_LOCK_MINUTES,
+  ]);
+  autoLockMinutes = stored[STORAGE_KEYS.AUTO_LOCK_MINUTES] ?? AUTOLOCK_MINUTES;
+  scheduleAlarm();
+})();
+
+/**
+ * Track user activity for auto-lock timer
+ * Only counts user-initiated actions, not passive polling
+ */
+function touchActivity(method?: string) {
+  if (method && USER_ACTIVITY_METHODS.has(method as any)) {
+    lastActivity = Date.now();
+  }
+}
+
+/**
+ * Check if message is from popup/extension page (not content script)
+ * Content scripts have sender.tab set; popup/options pages don't
+ */
+function isFromPopup(sender: chrome.runtime.MessageSender): boolean {
+  return !sender.tab;
+}
 
 /**
  * Handle messages from content script and popup
  */
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
-    lastActivity = Date.now();
     const { payload } = msg || {};
+    touchActivity(payload?.method);
+
+    // Guard: internal methods (wallet:*) can only be called from popup/extension pages
+    if (payload?.method?.startsWith('wallet:') && !isFromPopup(_sender)) {
+      return sendResponse({ error: ERROR_CODES.UNAUTHORIZED });
+    }
 
     switch (payload?.method) {
       // Provider methods (called from injected provider via content script)
@@ -61,6 +92,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       // Internal methods (called from popup)
       case INTERNAL_METHODS.SET_AUTO_LOCK:
         autoLockMinutes = payload.params?.[0] ?? 15;
+        await chrome.storage.local.set({
+          [STORAGE_KEYS.AUTO_LOCK_MINUTES]: autoLockMinutes,
+        });
         scheduleAlarm();
         return sendResponse({ ok: true });
 
@@ -95,11 +129,20 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return sendResponse(await vault.switchAccount(payload.params?.[0]));
 
       case INTERNAL_METHODS.RENAME_ACCOUNT:
-        return sendResponse(await vault.renameAccount(payload.params?.[0], payload.params?.[1]));
+        return sendResponse(
+          await vault.renameAccount(payload.params?.[0], payload.params?.[1])
+        );
 
       case INTERNAL_METHODS.CREATE_ACCOUNT:
         // params: name (optional)
         return sendResponse(await vault.createAccount(payload.params?.[0]));
+
+      case INTERNAL_METHODS.GET_MNEMONIC:
+        // params: password (required for verification)
+        return sendResponse(await vault.getMnemonic(payload.params?.[0]));
+
+      case INTERNAL_METHODS.GET_AUTO_LOCK:
+        return sendResponse({ minutes: autoLockMinutes });
 
       default:
         return sendResponse({ error: ERROR_CODES.METHOD_NOT_SUPPORTED });

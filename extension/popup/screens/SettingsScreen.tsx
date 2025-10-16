@@ -18,6 +18,8 @@ import { InfoIcon } from '../components/icons/InfoIcon';
 import { ChevronRightIcon } from '../components/icons/ChevronRightIcon';
 
 const AUTO_LOCK_OPTIONS = [
+  { value: 0.1, label: '6 seconds (testing)' },
+  { value: 1, label: '1 minute' },
   { value: 5, label: '5 minutes' },
   { value: 15, label: '15 minutes' },
   { value: 30, label: '30 minutes' },
@@ -32,11 +34,19 @@ export function SettingsScreen() {
   const address = wallet.currentAccount?.address || '';
   const truncatedAddress = truncateAddress(address);
 
-  // Get extension ID from Chrome runtime
+  // Get extension ID and current auto-lock setting on mount
   useEffect(() => {
     if (chrome?.runtime?.id) {
       setExtensionId(chrome.runtime.id);
     }
+
+    // Load current auto-lock setting
+    (async () => {
+      const result = await send<{ minutes?: number }>(INTERNAL_METHODS.GET_AUTO_LOCK);
+      if (result?.minutes) {
+        setAutoLockMinutes(result.minutes);
+      }
+    })();
   }, []);
 
   async function handleAutoLockChange(minutes: number) {
@@ -51,8 +61,7 @@ export function SettingsScreen() {
   }
 
   function handleViewRecoveryPhrase() {
-    // TODO: Implement recovery phrase screen
-    alert('Recovery phrase screen coming soon!');
+    navigate('recovery-phrase');
   }
 
   return (
