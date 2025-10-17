@@ -72,3 +72,17 @@ export interface TransactionDetails {
   /** Sender address */
   from?: string;
 }
+
+/**
+ * Pending sign message request from a dApp
+ */
+export interface SignRequest {
+  /** Unique request ID */
+  id: string;
+  /** Origin of the requesting site (e.g., "https://app.example.com") */
+  origin: string;
+  /** Message to be signed */
+  message: string;
+  /** Request timestamp */
+  timestamp: number;
+}

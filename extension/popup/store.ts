@@ -5,7 +5,7 @@
 import { create } from 'zustand';
 import { INTERNAL_METHODS } from '../shared/constants';
 import { hasIncompleteOnboarding } from '../shared/onboarding';
-import { Account, TransactionDetails } from '../shared/types';
+import { Account, TransactionDetails, SignRequest } from '../shared/types';
 import { send } from './utils/messaging';
 
 /**
@@ -32,6 +32,9 @@ export type Screen =
   | 'sent'
   | 'receive'
   | 'tx-details'
+
+  // Approval screens
+  | 'sign-message'
 
   // System
   | 'locked';
@@ -71,6 +74,10 @@ interface AppStore {
   lastTransaction: TransactionDetails | null;
   setLastTransaction: (transaction: TransactionDetails | null) => void;
 
+  // Pending sign request (for showing approval screen)
+  pendingSignRequest: SignRequest | null;
+  setPendingSignRequest: (request: SignRequest | null) => void;
+
   // Initialize app - checks vault status and navigates appropriately
   initialize: () => Promise<void>;
 
@@ -96,6 +103,7 @@ export const useStore = create<AppStore>((set, get) => ({
 
   onboardingMnemonic: null,
   lastTransaction: null,
+  pendingSignRequest: null,
 
   // Navigate to a new screen
   navigate: (screen: Screen) => {
@@ -131,6 +139,11 @@ export const useStore = create<AppStore>((set, get) => ({
   // Set last transaction details
   setLastTransaction: (transaction: TransactionDetails | null) => {
     set({ lastTransaction: transaction });
+  },
+
+  // Set pending sign request
+  setPendingSignRequest: (request: SignRequest | null) => {
+    set({ pendingSignRequest: request });
   },
 
   // Initialize app on load

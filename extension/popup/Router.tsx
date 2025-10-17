@@ -18,6 +18,7 @@ import { HomeScreen } from './screens/main/HomeScreen';
 import { SendScreen } from './screens/transactions/SendScreen';
 import { SentScreen } from './screens/transactions/SentScreen';
 import { ReceiveScreen } from './screens/transactions/ReceiveScreen';
+import { SignMessageScreen } from './screens/approvals/SignMessageScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { RecoveryPhraseScreen } from './screens/RecoveryPhraseScreen';
 
@@ -59,6 +60,10 @@ export function Router() {
       return <SentScreen />;
     case 'receive':
       return <ReceiveScreen />;
+
+    // Approvals
+    case 'sign-message':
+      return <SignMessageScreen />;
 
     // System
     case 'locked':

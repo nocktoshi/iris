@@ -19,6 +19,16 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
 }
 
+/* Hide scrollbars globally */
+* {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+*::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari, Opera */
+}
+
 /* Custom component classes */
 .btn-primary {
   width: 100%;
