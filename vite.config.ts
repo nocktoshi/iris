@@ -7,6 +7,18 @@ export default defineConfig({
   root: 'extension',
   build: {
     outDir: '../dist',
-    emptyOutDir: true
-  }
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        // Preserve WASM files during build
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name?.endsWith('.wasm')) {
+            return 'lib/nbx-crypto/[name][extname]';
+          }
+          return 'assets/[name]-[hash][extname]';
+        }
+      }
+    }
+  },
+  assetsInclude: ['**/*.wasm']
 });

@@ -1,11 +1,30 @@
 /**
  * Wallet cryptographic utilities
- * Uses @scure/bip39 for mnemonic generation (browser-native, no Buffer polyfill needed)
- * TODO: Replace address derivation with Nockchain WASM integration
+ * Integrates Nockchain WASM bindings
  */
 
-import { generateMnemonic as generateMnemonicScure, validateMnemonic as validateMnemonicScure } from '@scure/bip39';
-import { wordlist } from '@scure/bip39/wordlists/english.js';
+import {
+  generateMnemonic as generateMnemonicScure,
+  validateMnemonic as validateMnemonicScure,
+} from "@scure/bip39";
+import { wordlist } from "@scure/bip39/wordlists/english.js";
+import init, {
+  deriveMasterKeyFromMnemonic,
+} from "../lib/nbx-crypto/nbx_crypto.js";
+import { publicKeyToAddress } from "./address-encoding";
+
+let wasmInitialized = false;
+
+/**
+ * Ensures WASM module is initialized
+ * Must be called before using any WASM functions
+ */
+async function ensureWasmInit() {
+  if (!wasmInitialized) {
+    await init();
+    wasmInitialized = true;
+  }
+}
 
 /**
  * Generates a BIP-39 mnemonic (24 words)
@@ -25,14 +44,30 @@ export function validateMnemonic(mnemonic: string): boolean {
 }
 
 /**
- * Derives a Nockchain address from a mnemonic
- * TODO: Replace with real Nockchain SLIP-10 key derivation and CheetahPoint address generation
+ * Derives a Nockchain address from a mnemonic using SLIP-10 derivation
  * @param mnemonic - The BIP-39 mnemonic phrase
  * @param accountIndex - The account derivation index (default 0)
  * @returns A Base58-encoded Nockchain address (132 characters)
  */
-export function deriveAddress(mnemonic: string, accountIndex: number = 0): string {
-  // Placeholder: returns valid Base58 characters to pass validator
-  // TODO: Implement real SLIP-10 derivation and CheetahPoint encoding via WASM
-  return '1'.repeat(132);
+export async function deriveAddress(
+  mnemonic: string,
+  accountIndex: number = 0
+): Promise<string> {
+  await ensureWasmInit();
+
+  // Derive master key from mnemonic
+  const masterKey = deriveMasterKeyFromMnemonic(mnemonic, "");
+
+  // Derive child key at account index
+  const childKey = masterKey.deriveChild(accountIndex);
+
+  // Get the public key (97 bytes) and encode as base58
+  // Note: Nockchain addresses are base58-encoded public keys (not hashes)
+  const address = publicKeyToAddress(childKey.public_key);
+
+  // Clean up WASM memory
+  childKey.free();
+  masterKey.free();
+
+  return address;
 }

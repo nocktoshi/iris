@@ -65,7 +65,7 @@ export class Vault {
     // Create first account (Account 1 at index 0)
     const firstAccount: Account = {
       name: "Account 1",
-      address: deriveAddress(words, 0),
+      address: await deriveAddress(words, 0),
       index: 0,
     };
 
@@ -247,7 +247,7 @@ export class Vault {
 
     const newAccount: Account = {
       name: accountName,
-      address: deriveAddress(this.mnemonic, nextIndex),
+      address: await deriveAddress(this.mnemonic, nextIndex),
       index: nextIndex,
     };
 
@@ -341,13 +341,40 @@ export class Vault {
   }
 
   /**
-   * Signs a message
-   * TODO: Replace with real signing using WASM and derived private key
+   * Signs a message using Nockchain WASM cryptography
+   * Derives the account's private key and signs the message digest
    */
   async signMessage(params: unknown): Promise<string> {
-    // Placeholder: returns base64-encoded string
-    // TODO: Implement Schnorr signature over CheetahPoint via WASM
+    if (this.state.locked || !this.mnemonic) {
+      throw new Error("Wallet is locked");
+    }
+
+    const { deriveMasterKeyFromMnemonic, signDigest, tip5Hash } = await import('../lib/nbx-crypto/nbx_crypto.js');
+
     const msg = (Array.isArray(params) ? params[0] : params) ?? "";
-    return btoa("signed:" + String(msg));
+    const msgBytes = new TextEncoder().encode(String(msg));
+
+    // Derive the account's private key
+    const masterKey = deriveMasterKeyFromMnemonic(this.mnemonic, "");
+    const accountKey = masterKey.deriveChild(this.state.currentAccountIndex);
+
+    if (!accountKey.private_key) {
+      masterKey.free();
+      accountKey.free();
+      throw new Error("Cannot sign: no private key available");
+    }
+
+    // Hash the message with TIP5
+    const digest = tip5Hash(msgBytes);
+
+    // Sign the digest
+    const signatureJson = signDigest(accountKey.private_key, digest);
+
+    // Clean up WASM memory
+    accountKey.free();
+    masterKey.free();
+
+    // Return the signature JSON
+    return signatureJson;
   }
 }
