@@ -21,7 +21,10 @@ let wasmInitialized = false;
  */
 async function ensureWasmInit() {
   if (!wasmInitialized) {
-    await init();
+    // In service worker context, provide explicit WASM URL
+    // Must pass as object to avoid deprecated parameter warning
+    const cryptoWasmUrl = chrome.runtime.getURL('lib/nbx-crypto/nbx_crypto_bg.wasm');
+    await init({ module_or_path: cryptoWasmUrl });
     wasmInitialized = true;
   }
 }

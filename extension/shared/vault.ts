@@ -6,6 +6,9 @@ import { encryptGCM, decryptGCM, deriveKeyPBKDF2, rand, PBKDF2_ITERATIONS } from
 import { generateMnemonic, deriveAddress, validateMnemonic } from "./wallet-crypto";
 import { ERROR_CODES, STORAGE_KEYS } from "./constants";
 import { Account } from "./types";
+import { buildPayment } from "./transaction-builder";
+import { addressToPublicKey } from "./address-encoding";
+import initCryptoWasm, { deriveMasterKeyFromMnemonic, signDigest, tip5Hash } from '../lib/nbx-crypto/nbx_crypto.js';
 
 /**
  * Versioned encrypted vault format
@@ -349,7 +352,10 @@ export class Vault {
       throw new Error("Wallet is locked");
     }
 
-    const { deriveMasterKeyFromMnemonic, signDigest, tip5Hash } = await import('../lib/nbx-crypto/nbx_crypto.js');
+    // Initialize WASM module
+    // In service worker context, we need to provide the explicit URL
+    const cryptoWasmUrl = chrome.runtime.getURL('lib/nbx-crypto/nbx_crypto_bg.wasm');
+    await initCryptoWasm({ module_or_path: cryptoWasmUrl });
 
     const msg = (Array.isArray(params) ? params[0] : params) ?? "";
     const msgBytes = new TextEncoder().encode(String(msg));
@@ -376,5 +382,87 @@ export class Vault {
 
     // Return the signature JSON
     return signatureJson;
+  }
+
+  /**
+   * Signs a transaction using Nockchain WASM cryptography
+   * Derives the account's private key and builds/signs the transaction
+   *
+   * @param to - Recipient address (132-char base58)
+   * @param amount - Amount in nicks
+   * @param fee - Transaction fee in nicks
+   * @returns Transaction ID as hex string
+   */
+  async signTransaction(to: string, amount: number, fee: number): Promise<string> {
+    if (this.state.locked || !this.mnemonic) {
+      throw new Error("Wallet is locked");
+    }
+
+    const currentAccount = this.getCurrentAccount();
+    if (!currentAccount) {
+      throw new Error("No account selected");
+    }
+
+    // Initialize crypto WASM module
+    // In service worker context, we need to provide the explicit URL
+    const cryptoWasmUrl = chrome.runtime.getURL('lib/nbx-crypto/nbx_crypto_bg.wasm');
+    await initCryptoWasm({ module_or_path: cryptoWasmUrl });
+
+    // Derive the account's private and public keys
+    const masterKey = deriveMasterKeyFromMnemonic(this.mnemonic, "");
+    const accountKey = masterKey.deriveChild(this.state.currentAccountIndex);
+
+    if (!accountKey.private_key || !accountKey.public_key) {
+      masterKey.free();
+      accountKey.free();
+      throw new Error("Cannot sign: keys unavailable");
+    }
+
+    // Decode recipient address
+    const recipientPubkey = addressToPublicKey(to);
+
+    // TODO: Query actual UTXOs from blockchain via RPC
+    // For now, create a mock UTXO for testing purposes
+    // This will be replaced with real balance query when RPC is ready
+    const mockNote = {
+      version: 0,
+      originPage: BigInt(0),
+      timelockMin: undefined,
+      timelockMax: undefined,
+      nameFirst: new Uint8Array(40).fill(0), // Mock 40-byte name
+      nameLast: new Uint8Array(40).fill(1),  // Mock 40-byte name
+      lockPubkeys: [accountKey.public_key],
+      lockKeysRequired: BigInt(1),
+      sourceHash: new Uint8Array(40).fill(0), // Mock 40-byte hash
+      sourceIsCoinbase: false,
+      assets: amount + fee + 1000, // Ensure enough for tx + change
+    };
+
+    try {
+      // Build and sign the transaction
+      const constructedTx = await buildPayment(
+        mockNote,
+        recipientPubkey,
+        amount,
+        accountKey.public_key, // Change goes back to sender
+        fee,
+        accountKey.private_key,
+        accountKey.public_key
+      );
+
+      // Convert txId bytes to hex string
+      const txIdHex = Array.from(constructedTx.txId)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+
+      // TODO: Broadcast transaction via RPC
+      // await rpcClient.broadcastTransaction(constructedTx.serialized);
+
+      return txIdHex;
+    } finally {
+      // Clean up WASM memory
+      accountKey.free();
+      masterKey.free();
+    }
   }
 }

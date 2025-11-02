@@ -120,12 +120,7 @@ export class TransactionBuilder {
 
   /**
    * Validate a Nockchain address format
-   * Currently performs basic base58 validation
-   *
-   * NOTE: This validation is intentionally permissive (20-100 chars) because:
-   * - The final Nockchain address format is not yet finalized
-   * - Address prefixes (e.g., "nock1") are not yet implemented
-   * - This will be tightened once the address format is stable
+   * Nockchain addresses are base58-encoded 97-byte public keys (132 characters)
    *
    * @param address - The address to validate
    * @returns true if valid, false otherwise
@@ -136,9 +131,8 @@ export class TransactionBuilder {
       return false;
     }
 
-    // Must have reasonable length (base58 addresses are typically 32-44 chars)
-    // Kept loose (20-100) until final format is confirmed
-    if (address.length < 20 || address.length > 100) {
+    // Nockchain addresses are exactly 132 characters (base58-encoded 97-byte public key)
+    if (address.length !== 132) {
       return false;
     }
 
@@ -147,9 +141,6 @@ export class TransactionBuilder {
     if (!base58Regex.test(address)) {
       return false;
     }
-
-    // Future: When Nockchain implements address prefixes (e.g., "nock1"),
-    // add prefix validation here
 
     return true;
   }

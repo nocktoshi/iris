@@ -485,15 +485,29 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             return;
           }
 
-          // TODO: Implement real transaction signing and RPC broadcast to Nockchain network
-          // For now, return a generated transaction ID until WASM signing and RPC are integrated
-          approveTxPending.sendResponse({
-            txid: crypto.randomUUID(),
-            amount: txRequest.amount,
-            fee: txRequest.fee,
-          });
-          pendingRequests.delete(approveTxId);
-          sendResponse({ success: true });
+          try {
+            // Sign the transaction using the vault
+            const txIdHex = await vault.signTransaction(
+              txRequest.to,
+              txRequest.amount,
+              txRequest.fee
+            );
+
+            approveTxPending.sendResponse({
+              txid: txIdHex,
+              amount: txRequest.amount,
+              fee: txRequest.fee,
+            });
+            pendingRequests.delete(approveTxId);
+            sendResponse({ success: true });
+          } catch (error) {
+            console.error('Transaction signing failed:', error);
+            approveTxPending.sendResponse({
+              error: { code: 4900, message: error instanceof Error ? error.message : 'Transaction signing failed' },
+            });
+            pendingRequests.delete(approveTxId);
+            sendResponse({ error: error instanceof Error ? error.message : 'Transaction signing failed' });
+          }
         } else {
           sendResponse({ error: ERROR_CODES.NOT_FOUND });
         }

@@ -1,0 +1,37 @@
+/* tslint:disable */
+/* eslint-disable */
+export const memory: WebAssembly.Memory;
+export const __wbg_wasmseed_free: (a: number, b: number) => void;
+export const wasmseed_new: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
+export const wasmseed_newWithTimelock: (a: number, b: number, c: number, d: number, e: number, f: number, g: bigint, h: number, i: bigint) => [number, number, number];
+export const wasmseed_amount: (a: number) => number;
+export const wasmseed_getHash: (a: number) => [number, number];
+export const __wbg_wasmspend_free: (a: number, b: number) => void;
+export const wasmspend_new: (a: number, b: number, c: number) => number;
+export const wasmspend_getSigningDigest: (a: number) => [number, number];
+export const wasmspend_addSignature: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+export const wasmspend_sign: (a: number, b: number, c: number) => [number, number];
+export const wasmspend_signatureCount: (a: number) => number;
+export const wasmspend_fee: (a: number) => number;
+export const __wbg_wasmnote_free: (a: number, b: number) => void;
+export const wasmnote_new: (a: number, b: bigint, c: number, d: bigint, e: number, f: bigint, g: number, h: number, i: number, j: number, k: number, l: number, m: bigint, n: number, o: number, p: number, q: number) => [number, number, number];
+export const wasmnote_getNameFirst: (a: number) => [number, number];
+export const wasmnote_getNameLast: (a: number) => [number, number];
+export const __wbg_wasminput_free: (a: number, b: number) => void;
+export const wasminput_new: (a: number, b: number) => number;
+export const wasminput_value: (a: number) => number;
+export const wasminput_fee: (a: number) => number;
+export const __wbg_wasmrawtx_free: (a: number, b: number) => void;
+export const wasmrawtx_new: (a: number, b: number) => [number, number, number];
+export const wasmrawtx_getTxId: (a: number) => [number, number];
+export const wasmrawtx_getTotalFees: (a: number) => number;
+export const wasmrawtx_getInputCount: (a: number) => number;
+export const wasmrawtx_serialize: (a: number) => [number, number, number, number];
+export const wasmnote_assets: (a: number) => number;
+export const __wbindgen_export_0: WebAssembly.Table;
+export const __wbindgen_malloc: (a: number, b: number) => number;
+export const __externref_table_dealloc: (a: number) => void;
+export const __wbindgen_free: (a: number, b: number, c: number) => void;
+export const __externref_table_alloc: () => number;
+export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+export const __wbindgen_start: () => void;

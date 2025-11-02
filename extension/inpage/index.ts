@@ -6,7 +6,7 @@
  */
 
 // Inline constant to avoid imports
-const MESSAGE_TARGET = 'FORT_NOCK';
+const MESSAGE_TARGET = "FORT_NOCK";
 
 interface RequestArgs {
   method: string;
@@ -21,27 +21,38 @@ class NockProvider {
   request(args: RequestArgs): Promise<unknown> {
     const id = Math.random().toString(36).slice(2);
 
-    console.log('[Fort Nock] Sending request:', args.method, { id, args });
+    console.log("[Fort Nock] Sending request:", args.method, { id, args });
 
     // Post message to content script
     window.postMessage(
       {
         target: MESSAGE_TARGET,
         id,
-        payload: args
+        payload: args,
       },
-      '*'
+      "*"
     );
 
-    // Wait for response
+    // Wait for response with timeout
     return new Promise((resolve, reject) => {
+      let timeoutId: number;
+
       const handler = (evt: MessageEvent) => {
         const data = evt.data;
 
         // Check if this is our response (must have a reply field, not just the request)
-        if (data?.target === MESSAGE_TARGET && data.id === id && data.reply !== undefined) {
-          console.log('[Fort Nock] Matched response:', { id, reply: data.reply, fullData: data });
-          window.removeEventListener('message', handler);
+        if (
+          data?.target === MESSAGE_TARGET &&
+          data.id === id &&
+          data.reply !== undefined
+        ) {
+          console.log("[Fort Nock] Matched response:", {
+            id,
+            reply: data.reply,
+            fullData: data,
+          });
+          window.removeEventListener("message", handler);
+          clearTimeout(timeoutId);
 
           if (data.reply?.error) {
             reject(new Error(data.reply.error));
@@ -51,7 +62,18 @@ class NockProvider {
         }
       };
 
-      window.addEventListener('message', handler);
+      // Timeout after 30 seconds
+      timeoutId = window.setTimeout(() => {
+        window.removeEventListener("message", handler);
+        reject(
+          new Error(
+            "Extension is not responding." +
+              "If you just reloaded the extension, you need to refresh this page."
+          )
+        );
+      }, 30000);
+
+      window.addEventListener("message", handler);
     });
   }
 
@@ -65,7 +87,10 @@ class NockProvider {
   /**
    * Remove event listener stub (for EIP-1193 compatibility)
    */
-  removeListener(_eventName: string, _listener: (...args: unknown[]) => void): void {
+  removeListener(
+    _eventName: string,
+    _listener: (...args: unknown[]) => void
+  ): void {
     // TODO: Implement event system if needed
   }
 }
@@ -76,4 +101,4 @@ const provider = new NockProvider();
 (window as any).nockchain = provider;
 
 // Announce provider availability
-window.dispatchEvent(new Event('nockchain#initialized'));
+window.dispatchEvent(new Event("nockchain#initialized"));

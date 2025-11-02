@@ -30,7 +30,12 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["lib/nbx-crypto/*.wasm", "lib/nbx-crypto/*.js"],
+      "resources": [
+        "lib/nbx-crypto/*.wasm",
+        "lib/nbx-crypto/*.js",
+        "lib/nbx-nockchain-types/*.wasm",
+        "lib/nbx-nockchain-types/*.js"
+      ],
       "matches": ["<all_urls>"]
     }
   ]
