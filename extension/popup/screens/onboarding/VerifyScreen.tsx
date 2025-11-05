@@ -2,120 +2,209 @@
  * Onboarding Verify Screen - Verify user wrote down mnemonic correctly
  */
 
-import { useState, useEffect } from 'react';
-import { useStore } from '../../store';
-import { ScreenContainer } from '../../components/ScreenContainer';
-import { Alert } from '../../components/Alert';
+import { useState } from "react";
+import { useStore } from "../../store";
+import { Alert } from "../../components/Alert";
+import lockIcon from "../../assets/lock-icon.svg";
+
+// Positions to test (0-indexed)
+const TEST_POSITIONS = [3, 6, 13, 15, 20, 22]; // Words at positions 4, 7, 14, 16, 21, 23
 
 export function VerifyScreen() {
   const { onboardingMnemonic, navigate, setOnboardingMnemonic } = useStore();
-  const [selectedWord, setSelectedWord] = useState<string>('');
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-  const [testIndex, setTestIndex] = useState<number>(0);
-  const [options, setOptions] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (!onboardingMnemonic) return;
-
-    const words = onboardingMnemonic.split(' ');
-
-    // Pick a random word to test (avoid first and last few for better security awareness)
-    const randomIndex = Math.floor(Math.random() * (words.length - 4)) + 2;
-    setTestIndex(randomIndex);
-
-    // Create options: correct word + 3 random other words from the mnemonic
-    const correctWord = words[randomIndex];
-    const otherWords = words.filter((_, i) => i !== randomIndex);
-    const randomOthers = otherWords
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 3);
-
-    // Shuffle all options
-    const allOptions = [correctWord, ...randomOthers].sort(() => Math.random() - 0.5);
-    setOptions(allOptions);
-  }, [onboardingMnemonic]);
+  const [inputs, setInputs] = useState<Record<number, string>>({});
+  const [error, setError] = useState<string>("");
 
   if (!onboardingMnemonic) {
     return (
-      <ScreenContainer>
-        <h2 className="text-xl font-semibold mb-4 text-red-500">Error</h2>
-        <p className="text-sm text-gray-400">No mnemonic found. Please restart onboarding.</p>
-        <button onClick={() => navigate('onboarding-start')} className="btn-primary my-2">
-          Back to Start
-        </button>
-      </ScreenContainer>
+      <div className="w-[357px] h-[600px] bg-[var(--color-bg)] flex items-center justify-center p-4">
+        <Alert type="error">
+          No mnemonic found. Please restart onboarding.
+        </Alert>
+      </div>
     );
   }
 
-  const words = onboardingMnemonic.split(' ');
-  const correctWord = words[testIndex];
+  const words = onboardingMnemonic.split(" ");
+
+  function handleInputChange(position: number, value: string) {
+    setInputs((prev) => ({ ...prev, [position]: value.trim().toLowerCase() }));
+    setError("");
+  }
 
   function handleVerify() {
-    if (selectedWord === correctWord) {
-      setIsCorrect(true);
-      // Wait a moment then navigate to success
-      setTimeout(() => {
-        // Clear the mnemonic from memory
-        setOnboardingMnemonic(null);
-        navigate('onboarding-success');
-      }, 1000);
+    // Check if all positions are filled
+    const allFilled = TEST_POSITIONS.every((pos) => inputs[pos]?.length > 0);
+    if (!allFilled) {
+      setError("Please fill in all word fields");
+      return;
+    }
+
+    // Verify all words are correct
+    const allCorrect = TEST_POSITIONS.every(
+      (pos) => inputs[pos] === words[pos].toLowerCase()
+    );
+
+    if (allCorrect) {
+      // Clear the mnemonic from memory and navigate to success
+      setOnboardingMnemonic(null);
+      navigate("onboarding-success");
     } else {
-      setIsCorrect(false);
+      setError(
+        "One or more words are incorrect. Please check your recovery phrase and try again."
+      );
     }
   }
 
   function handleBack() {
-    navigate('onboarding-backup');
+    navigate("onboarding-backup");
   }
 
   return (
-    <ScreenContainer className="flex flex-col">
-      <h2 className="text-xl font-semibold mb-4">Verify Recovery Phrase</h2>
-
-      <p className="text-sm text-gray-400 mb-6">
-        Select the correct word for position <strong>#{testIndex + 1}</strong>
-      </p>
-
-      <div className="flex flex-col gap-2 mb-6">
-        {options.map((word) => (
-          <button
-            key={word}
-            onClick={() => setSelectedWord(word)}
-            className={`p-3 rounded border transition-colors ${
-              selectedWord === word
-                ? 'bg-blue-600 border-blue-500'
-                : 'bg-gray-800 border-gray-700 hover:border-gray-600'
-            }`}
-          >
-            <span className="font-mono">{word}</span>
-          </button>
-        ))}
-      </div>
-
-      {isCorrect === false && (
-        <Alert type="error" className="mb-4">
-          Incorrect word. Please review your recovery phrase and try again.
-        </Alert>
-      )}
-
-      {isCorrect === true && (
-        <Alert type="success" className="mb-4">
-          Correct! Setting up your wallet...
-        </Alert>
-      )}
-
-      <div className="mt-auto flex flex-col gap-2">
+    <div className="relative w-[357px] h-[600px] bg-[var(--color-bg)]">
+      {/* Header with back button */}
+      <div className="flex items-center justify-between h-16 px-4 py-3 border-b border-[var(--color-divider)]">
         <button
-          onClick={handleVerify}
-          disabled={!selectedWord || isCorrect === true}
-          className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={handleBack}
+          className="p-2 -ml-2 hover:opacity-70 transition-opacity"
+          aria-label="Go back"
         >
-          Verify
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M10 12L6 8L10 4"
+              stroke="var(--color-text-primary)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
-        <button onClick={handleBack} className="btn-secondary">
-          Back to Recovery Phrase
-        </button>
+        <h2
+          className="font-sans font-medium text-[var(--color-text-primary)]"
+          style={{
+            fontSize: "var(--font-size-lg)",
+            lineHeight: "var(--line-height-normal)",
+            letterSpacing: "0.01em",
+          }}
+        >
+          Save your recovery phrase
+        </h2>
+        <div className="w-8" /> {/* Spacer for centering */}
       </div>
-    </ScreenContainer>
+
+      {/* Main content */}
+      <div className="flex flex-col justify-between h-[536px]">
+        <div className="px-4 py-2 flex flex-col gap-6">
+          {/* Icon and heading */}
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-10 h-10">
+              <img src={lockIcon} alt="" className="w-full h-full" />
+            </div>
+            <div className="flex flex-col gap-2 items-center text-center w-full">
+              <h1
+                className="font-serif font-medium text-[var(--color-text-primary)]"
+                style={{
+                  fontSize: "var(--font-size-xl)",
+                  lineHeight: "var(--line-height-relaxed)",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                Verify recovery phrase.
+              </h1>
+              <p
+                className="font-sans text-[var(--color-text-muted)]"
+                style={{
+                  fontSize: "var(--font-size-sm)",
+                  lineHeight: "var(--line-height-snug)",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                Please write down the words with this number
+              </p>
+            </div>
+          </div>
+
+          {/* Input fields */}
+          <div className="flex flex-col gap-2 w-full">
+            {[0, 1, 2].map((row) => (
+              <div key={row} className="flex gap-2 w-full">
+                {[0, 1].map((col) => {
+                  const index = row * 2 + col;
+                  const position = TEST_POSITIONS[index];
+                  const wordNumber = position + 1;
+
+                  return (
+                    <div
+                      key={col}
+                      className="flex-1 min-w-0 bg-[var(--color-bg)] border border-[var(--color-surface-700)] rounded-lg p-2 flex items-center gap-2.5 h-11"
+                    >
+                      <span
+                        className="bg-[var(--color-surface-900)] rounded w-7 h-7 flex items-center justify-center font-sans font-medium text-[var(--color-text-primary)] flex-shrink-0"
+                        style={{
+                          fontSize: "var(--font-size-base)",
+                          lineHeight: "var(--line-height-snug)",
+                          letterSpacing: "0.01em",
+                        }}
+                      >
+                        {wordNumber}
+                      </span>
+                      <input
+                        type="text"
+                        value={inputs[position] || ""}
+                        onChange={(e) =>
+                          handleInputChange(position, e.target.value)
+                        }
+                        placeholder="word"
+                        className="flex-1 min-w-0 bg-transparent font-sans font-medium text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] outline-none"
+                        style={{
+                          fontSize: "var(--font-size-base)",
+                          lineHeight: "var(--line-height-snug)",
+                          letterSpacing: "0.01em",
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+
+          {/* Error message */}
+          {error && <Alert type="error">{error}</Alert>}
+        </div>
+
+        {/* Bottom buttons */}
+        <div className="border-t border-[var(--color-surface-800)] px-4 py-3">
+          <div className="flex gap-3">
+            <button
+              onClick={handleBack}
+              className="flex-1 h-12 px-5 py-[15px] bg-[var(--color-surface-800)] text-[var(--color-text-primary)] rounded-lg flex items-center justify-center transition-opacity hover:opacity-90"
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "var(--font-size-base)",
+                fontWeight: 500,
+                lineHeight: "var(--line-height-snug)",
+                letterSpacing: "0.01em",
+              }}
+            >
+              Back
+            </button>
+            <button
+              onClick={handleVerify}
+              className="flex-1 h-12 px-5 py-[15px] bg-[var(--color-primary)] text-[#000000] rounded-lg flex items-center justify-center transition-opacity hover:opacity-90"
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontSize: "var(--font-size-base)",
+                fontWeight: 500,
+                lineHeight: "var(--line-height-snug)",
+                letterSpacing: "0.01em",
+              }}
+            >
+              Create wallet
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

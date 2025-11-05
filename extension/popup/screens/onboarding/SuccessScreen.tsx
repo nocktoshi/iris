@@ -2,14 +2,11 @@
  * Onboarding Success Screen - Wallet created successfully
  */
 
-import { useEffect } from 'react';
-import { useStore } from '../../store';
-import { markOnboardingComplete } from '../../../shared/onboarding';
-import { ScreenContainer } from '../../components/ScreenContainer';
-import { CheckIcon } from '../../components/icons/CheckIcon';
-import { CopyIcon } from '../../components/icons/CopyIcon';
-import { ChevronLeftIcon } from '../../components/icons/ChevronLeftIcon';
-import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
+import { useEffect } from "react";
+import { useStore } from "../../store";
+import { markOnboardingComplete } from "../../../shared/onboarding";
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
+import checkmarkIcon from "../../assets/checkmark-icon.svg";
 
 export function SuccessScreen() {
   const { navigate, wallet, goBack } = useStore();
@@ -20,58 +17,170 @@ export function SuccessScreen() {
     markOnboardingComplete();
   }, []);
 
+  // Format address to show start and end with middle grayed out
+  function formatAddress(address: string) {
+    if (!address || address.length < 20) return address;
+    const start = address.slice(0, 6);
+    const middle = address.slice(6, -5);
+    const end = address.slice(-5);
+    return { start, middle, end };
+  }
+
+  const formattedAddress = formatAddress(wallet.address || "");
+
   return (
-    <ScreenContainer className="flex flex-col">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
+    <div className="relative w-[357px] h-[600px] bg-[var(--color-bg)]">
+      {/* Header with back button */}
+      <div className="flex items-center justify-between h-16 px-4 py-3 border-b border-[var(--color-divider)]">
         <button
           onClick={goBack}
-          className="text-gray-400 hover:text-white transition-colors"
+          className="p-2 -ml-2 hover:opacity-70 transition-opacity"
+          aria-label="Go back"
         >
-          <ChevronLeftIcon />
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M10 12L6 8L10 4"
+              stroke="var(--color-text-primary)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
-        <h2 className="text-xl font-semibold">Wallet Created!</h2>
+        <h2
+          className="font-sans font-medium text-[var(--color-text-primary)]"
+          style={{
+            fontSize: "var(--font-size-lg)",
+            lineHeight: "var(--line-height-normal)",
+            letterSpacing: "0.01em",
+          }}
+        >
+          Wallet created!
+        </h2>
+        <div className="w-8" /> {/* Spacer for centering */}
       </div>
 
-      {/* Success icon */}
-      <div className="flex justify-center mb-6">
-        <div className="w-24 h-24 rounded-full bg-green-500/20 flex items-center justify-center">
-          <CheckIcon className="w-12 h-12 text-green-500" />
+      {/* Main content */}
+      <div className="flex flex-col justify-between h-[536px]">
+        <div className="px-4 py-2 flex flex-col gap-8">
+          {/* Icon and heading */}
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-10 h-10">
+              <img src={checkmarkIcon} alt="" className="w-full h-full" />
+            </div>
+            <div className="flex flex-col gap-2 items-center text-center w-full">
+              <h1
+                className="font-serif font-medium text-[var(--color-text-primary)]"
+                style={{
+                  fontSize: "var(--font-size-xl)",
+                  lineHeight: "var(--line-height-relaxed)",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                Your wallet is ready!
+              </h1>
+              <p
+                className="font-sans text-[var(--color-text-muted)]"
+                style={{
+                  fontSize: "var(--font-size-sm)",
+                  lineHeight: "var(--line-height-snug)",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                Welcome to Nockchain
+              </p>
+            </div>
+          </div>
+
+          {/* Address section */}
+          <div className="flex flex-col gap-1.5 w-full">
+            <p
+              className="font-sans font-medium text-center text-[var(--color-text-primary)]"
+              style={{
+                fontSize: "var(--font-size-sm)",
+                lineHeight: "var(--line-height-snug)",
+                letterSpacing: "0.02em",
+              }}
+            >
+              Your address
+            </p>
+            <div className="bg-[var(--color-surface-900)] rounded-lg p-3 flex flex-col gap-5 items-center">
+              {/* Address display */}
+              <p
+                className="font-sans font-medium text-center text-[var(--color-text-primary)] break-words w-full"
+                style={{
+                  fontSize: "var(--font-size-base)",
+                  lineHeight: "var(--line-height-snug)",
+                  letterSpacing: "0.01em",
+                }}
+              >
+                {typeof formattedAddress === "string" ? (
+                  formattedAddress
+                ) : (
+                  <>
+                    {formattedAddress.start}
+                    <span className="text-[var(--color-text-muted)]">
+                      {formattedAddress.middle}
+                    </span>
+                    {formattedAddress.end}
+                  </>
+                )}
+              </p>
+
+              {/* Copy button */}
+              <button
+                onClick={() => copyToClipboard(wallet.address || "")}
+                className="border border-[var(--color-text-primary)] rounded-full px-4 py-1.5 flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M4 4V2.66667C4 2.29848 4.29848 2 4.66667 2H13.3333C13.7015 2 14 2.29848 14 2.66667V11.3333C14 11.7015 13.7015 12 13.3333 12H12"
+                    stroke="var(--color-text-primary)"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                  <rect
+                    x="2"
+                    y="4"
+                    width="10"
+                    height="10"
+                    rx="0.666667"
+                    stroke="var(--color-text-primary)"
+                    strokeWidth="1.5"
+                  />
+                </svg>
+                <span
+                  className="font-sans font-medium text-[var(--color-text-primary)]"
+                  style={{
+                    fontSize: "var(--font-size-base)",
+                    lineHeight: "var(--line-height-snug)",
+                    letterSpacing: "0.01em",
+                  }}
+                >
+                  {copied ? "Copied!" : "Copy address"}
+                </span>
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Success message */}
-      <h3 className="text-2xl font-semibold text-center mb-2">
-        Your wallet is ready!
-      </h3>
-      <p className="text-gray-400 text-center mb-8">
-        Welcome to Nockchain
-      </p>
-
-      {/* Wallet address section */}
-      <div className="bg-gray-800 rounded-lg p-4 mb-6">
-        <p className="text-sm text-gray-400 mb-2">Your wallet address</p>
-        <div className="flex items-start gap-3">
-          <p className="flex-1 text-sm font-mono break-all leading-relaxed">
-            {wallet.address || 'Loading...'}
-          </p>
+        {/* Bottom button */}
+        <div className="border-t border-[var(--color-surface-800)] p-3">
           <button
-            onClick={() => copyToClipboard(wallet.address || '')}
-            className="text-gray-400 hover:text-white transition-colors flex-shrink-0"
-            title="Copy address"
+            onClick={() => navigate("home")}
+            className="w-full h-12 px-5 py-[15px] bg-[var(--color-primary)] text-[#000000] rounded-lg flex items-center justify-center transition-opacity hover:opacity-90"
+            style={{
+              fontFamily: "var(--font-sans)",
+              fontSize: "var(--font-size-base)",
+              fontWeight: 500,
+              lineHeight: "var(--line-height-snug)",
+              letterSpacing: "0.01em",
+            }}
           >
-            <CopyIcon />
+            Start using wallet
           </button>
         </div>
-        {copied && (
-          <p className="text-xs text-green-500 mt-2">Copied to clipboard!</p>
-        )}
       </div>
-
-      {/* Action button */}
-      <button onClick={() => navigate('home')} className="btn-primary">
-        Start Using Wallet
-      </button>
-    </ScreenContainer>
+    </div>
   );
 }

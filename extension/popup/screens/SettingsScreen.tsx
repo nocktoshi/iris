@@ -16,6 +16,7 @@ import { EyeIcon } from '../components/icons/EyeIcon';
 import { LockIcon } from '../components/icons/LockIcon';
 import { InfoIcon } from '../components/icons/InfoIcon';
 import { ChevronRightIcon } from '../components/icons/ChevronRightIcon';
+import { ThemeToggle } from '../components/ThemeToggle';
 
 const AUTO_LOCK_OPTIONS = [
   { value: 0.1, label: '6 seconds (testing)' },
@@ -98,6 +99,12 @@ export function SettingsScreen() {
               <span className="text-sm">Nockchain Mainnet</span>
             </div>
           </div>
+        </section>
+
+        {/* Appearance Section */}
+        <section>
+          <h3 className="text-lg font-medium mb-3">Appearance</h3>
+          <ThemeToggle />
         </section>
 
         {/* Security Section */}
