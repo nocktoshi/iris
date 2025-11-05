@@ -4,26 +4,49 @@
  */
 
 import { base58 } from '@scure/base';
+import { tip5Hash } from '../lib/nbx-crypto/nbx_crypto.js';
 
 /**
- * Converts a public key to a Nockchain address
- * In Nockchain, an address is the base58-encoded public key
+ * Converts a public key to a Nockchain v0 address (DEPRECATED - use v1)
+ * In Nockchain v0, an address is the base58-encoded public key
  *
  * @param publicKey - The 97-byte public key from WASM
  * @returns A 132-character base58-encoded address
+ * @deprecated Use publicKeyToPKH for v1 addresses instead
  */
 export function publicKeyToAddress(publicKey: Uint8Array): string {
   if (publicKey.length !== 97) {
     throw new Error(`Invalid public key length: ${publicKey.length}, expected 97`);
   }
 
-  // Nockchain addresses are base58-encoded public keys
+  // Nockchain v0 addresses are base58-encoded public keys
   const address = base58.encode(publicKey);
 
   // Validate the result is 132 characters
   if (address.length !== 132) {
     throw new Error(`Invalid address length: ${address.length}, expected 132`);
   }
+
+  return address;
+}
+
+/**
+ * Converts a public key to a Nockchain v1 PKH (Public Key Hash) address
+ * In Nockchain v1, an address is the base58-encoded TIP5 hash of the public key
+ *
+ * @param publicKey - The 97-byte public key from WASM
+ * @returns A ~60-character base58-encoded PKH address
+ */
+export function publicKeyToPKH(publicKey: Uint8Array): string {
+  if (publicKey.length !== 97) {
+    throw new Error(`Invalid public key length: ${publicKey.length}, expected 97`);
+  }
+
+  // Hash the public key with TIP5
+  const pkh = tip5Hash(publicKey);
+
+  // Base58 encode the hash
+  const address = base58.encode(pkh);
 
   return address;
 }

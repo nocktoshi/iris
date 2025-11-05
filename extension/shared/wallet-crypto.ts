@@ -11,7 +11,7 @@ import { wordlist } from "@scure/bip39/wordlists/english.js";
 import init, {
   deriveMasterKeyFromMnemonic,
 } from "../lib/nbx-crypto/nbx_crypto.js";
-import { publicKeyToAddress } from "./address-encoding";
+import { publicKeyToPKH } from "./address-encoding";
 
 let wasmInitialized = false;
 
@@ -47,10 +47,10 @@ export function validateMnemonic(mnemonic: string): boolean {
 }
 
 /**
- * Derives a Nockchain address from a mnemonic using SLIP-10 derivation
+ * Derives a Nockchain v1 PKH address from a mnemonic using SLIP-10 derivation
  * @param mnemonic - The BIP-39 mnemonic phrase
  * @param accountIndex - The account derivation index (default 0)
- * @returns A Base58-encoded Nockchain address (132 characters)
+ * @returns A Base58-encoded Nockchain v1 PKH address (~60 characters)
  */
 export async function deriveAddress(
   mnemonic: string,
@@ -64,9 +64,9 @@ export async function deriveAddress(
   // Derive child key at account index
   const childKey = masterKey.deriveChild(accountIndex);
 
-  // Get the public key (97 bytes) and encode as base58
-  // Note: Nockchain addresses are base58-encoded public keys (not hashes)
-  const address = publicKeyToAddress(childKey.public_key);
+  // Get the public key hash (PKH) for v1 addresses
+  // v1 uses TIP5 hash of the public key, base58 encoded
+  const address = publicKeyToPKH(childKey.public_key);
 
   // Clean up WASM memory
   childKey.free();
