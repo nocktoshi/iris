@@ -14,14 +14,25 @@ import { SuccessScreen } from './screens/onboarding/SuccessScreen';
 import { ImportScreen } from './screens/onboarding/ImportScreen';
 import { ImportSuccessScreen } from './screens/onboarding/ImportSuccessScreen';
 import { ResumeBackupScreen } from './screens/onboarding/ResumeBackupScreen';
-import { HomeScreen } from './screens/main/HomeScreen';
-import { SendScreen } from './screens/transactions/SendScreen';
+import { HomeScreen } from './screens/HomeScreen';
+import { SendScreen } from './screens/SendScreen';
+import { SendReviewScreen } from './screens/SendReviewScreen';
+import { SendSubmittedScreen } from './screens/SendSubmittedScreen';
 import { SentScreen } from './screens/transactions/SentScreen';
-import { ReceiveScreen } from './screens/transactions/ReceiveScreen';
+import { TransactionDetailsScreen } from './screens/TransactionDetailsScreen';
+import { ReceiveScreen } from './screens/ReceiveScreen';
 import { ConnectApprovalScreen } from './screens/approvals/ConnectApprovalScreen';
 import { SignMessageScreen } from './screens/approvals/SignMessageScreen';
 import { TransactionApprovalScreen } from './screens/approvals/TransactionApprovalScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
+import { ThemeSettingsScreen } from './screens/ThemeSettingsScreen';
+import { LockTimeScreen } from './screens/LockTimeScreen';
+import { KeySettingsPasswordScreen } from './screens/KeySettingsPasswordScreen';
+import { ViewSecretPhraseScreen } from './screens/ViewSecretPhraseScreen';
+import { WalletPermissionsScreen } from './screens/WalletPermissionsScreen';
+import { WalletSettingsScreen } from './screens/WalletSettingsScreen';
+import { WalletStylingScreen } from './screens/WalletStylingScreen';
+import { AboutScreen } from './screens/AboutScreen';
 import { RecoveryPhraseScreen } from './screens/RecoveryPhraseScreen';
 
 export function Router() {
@@ -52,16 +63,38 @@ export function Router() {
       return <HomeScreen />;
     case 'settings':
       return <SettingsScreen />;
+    case 'theme-settings':
+      return <ThemeSettingsScreen />;
+    case 'lock-time':
+      return <LockTimeScreen />;
+    case 'key-settings':
+      return <KeySettingsPasswordScreen />;
+    case 'view-secret-phrase':
+      return <ViewSecretPhraseScreen />;
+    case 'wallet-permissions':
+      return <WalletPermissionsScreen />;
+    case 'wallet-settings':
+      return <WalletSettingsScreen />;
+    case 'wallet-styling':
+      return <WalletStylingScreen />;
+    case 'about':
+      return <AboutScreen />;
     case 'recovery-phrase':
       return <RecoveryPhraseScreen />;
 
     // Transactions
     case 'send':
       return <SendScreen />;
+    case 'send-review':
+      return <SendReviewScreen />;
+    case 'send-submitted':
+      return <SendSubmittedScreen />;
     case 'sent':
       return <SentScreen />;
     case 'receive':
       return <ReceiveScreen />;
+    case 'tx-details':
+      return <TransactionDetailsScreen />;
 
     // Approvals
     case 'connect-approval':

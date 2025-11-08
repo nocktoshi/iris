@@ -7,6 +7,8 @@ import { INTERNAL_METHODS, ERROR_CODES } from "../../../shared/constants";
 import { useStore } from "../../store";
 import { send } from "../../utils/messaging";
 import { Alert } from "../../components/Alert";
+import { EyeIcon } from "../../components/icons/EyeIcon";
+import { EyeOffIcon } from "../../components/icons/EyeOffIcon";
 import logoSvg from "../../assets/iris-logo.svg";
 
 export function LockedScreen() {
@@ -138,28 +140,9 @@ export function LockedScreen() {
                   className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                 >
                   {showPassword ? (
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path
-                        d="M2 2L14 14M8 5.6C9.32548 5.6 10.4 6.67452 10.4 8C10.4 8.27624 10.3534 8.54144 10.2678 8.78886M8 10.4C6.67452 10.4 5.6 9.32548 5.6 8C5.6 7.72375 5.64663 7.45854 5.73223 7.21111M8 4C10.2091 4 12.0367 5.26206 13.105 6.72097C13.4066 7.1526 13.4066 7.7474 13.105 8.17903C12.539 8.96336 11.8343 9.65648 11.0337 10.1991M8 12C5.79089 12 3.96327 10.7379 2.89491 9.27903C2.59338 8.8474 2.59338 8.2526 2.89491 7.82097C3.46115 7.03662 4.16571 6.34354 4.96632 5.80084"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
+                    <EyeOffIcon className="h-4 w-4" />
                   ) : (
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path
-                        d="M8 5.6C9.32548 5.6 10.4 6.67452 10.4 8C10.4 9.32548 9.32548 10.4 8 10.4C6.67452 10.4 5.6 9.32548 5.6 8C5.6 6.67452 6.67452 5.6 8 5.6Z"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                      />
-                      <path
-                        d="M8 4C10.2091 4 12.0367 5.26206 13.105 6.72097C13.4066 7.1526 13.4066 7.7474 13.105 8.17903C12.0367 9.63794 10.2091 10.88 8 10.88C5.79089 10.88 3.96327 9.63794 2.89491 8.17903C2.59338 7.7474 2.59338 7.1526 2.89491 6.72097C3.96327 5.26206 5.79089 4 8 4Z"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                      />
-                    </svg>
+                    <EyeIcon className="h-4 w-4" />
                   )}
                 </button>
               </div>

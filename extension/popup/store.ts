@@ -11,6 +11,7 @@ import {
   SignRequest,
   TransactionRequest,
   ConnectRequest,
+  CachedTransaction,
 } from "../shared/types";
 import { send } from "./utils/messaging";
 
@@ -31,10 +32,20 @@ export type Screen =
   // Main app screens
   | "home"
   | "settings"
+  | "theme-settings"
+  | "lock-time"
+  | "key-settings"
+  | "view-secret-phrase"
+  | "wallet-permissions"
+  | "wallet-settings"
+  | "wallet-styling"
+  | "about"
   | "recovery-phrase"
 
   // Transaction screens
   | "send"
+  | "send-review"
+  | "send-submitted"
   | "sent"
   | "receive"
   | "tx-details"
@@ -94,11 +105,21 @@ interface AppStore {
   pendingTransactionRequest: TransactionRequest | null;
   setPendingTransactionRequest: (request: TransactionRequest | null) => void;
 
+  // Cached transactions for current account
+  cachedTransactions: CachedTransaction[];
+  setCachedTransactions: (transactions: CachedTransaction[]) => void;
+
   // Initialize app - checks vault status and navigates appropriately
   initialize: () => Promise<void>;
 
   // Fetch balance from blockchain
   fetchBalance: () => Promise<void>;
+
+  // Fetch cached transactions for current account
+  fetchCachedTransactions: () => Promise<void>;
+
+  // Add a sent transaction to cache
+  addSentTransactionToCache: (txid: string, amount: number, fee: number, to: string) => Promise<void>;
 }
 
 /**
@@ -122,6 +143,7 @@ export const useStore = create<AppStore>((set, get) => ({
   pendingConnectRequest: null,
   pendingSignRequest: null,
   pendingTransactionRequest: null,
+  cachedTransactions: [],
 
   // Navigate to a new screen
   navigate: (screen: Screen) => {
@@ -172,6 +194,11 @@ export const useStore = create<AppStore>((set, get) => ({
   // Set pending transaction request
   setPendingTransactionRequest: (request: TransactionRequest | null) => {
     set({ pendingTransactionRequest: request });
+  },
+
+  // Set cached transactions
+  setCachedTransactions: (transactions: CachedTransaction[]) => {
+    set({ cachedTransactions: transactions });
   },
 
   // Initialize app on load
@@ -234,6 +261,7 @@ export const useStore = create<AppStore>((set, get) => ({
       // Fetch balance if wallet is unlocked
       if (!walletState.locked && walletState.address) {
         get().fetchBalance();
+        get().fetchCachedTransactions();
       }
     } catch (error) {
       console.error("Failed to initialize app:", error);
@@ -256,6 +284,51 @@ export const useStore = create<AppStore>((set, get) => ({
       });
     } catch (error) {
       console.error("Failed to fetch balance:", error);
+    }
+  },
+
+  // Fetch cached transactions for current account
+  fetchCachedTransactions: async () => {
+    try {
+      const currentAccount = get().wallet.currentAccount;
+      if (!currentAccount) return;
+
+      const result = await send<{ transactions: CachedTransaction[] }>(
+        INTERNAL_METHODS.GET_CACHED_TRANSACTIONS,
+        [currentAccount.address]
+      );
+
+      set({ cachedTransactions: result.transactions || [] });
+    } catch (error) {
+      console.error("Failed to fetch cached transactions:", error);
+    }
+  },
+
+  // Add a sent transaction to cache
+  addSentTransactionToCache: async (txid: string, amount: number, fee: number, to: string) => {
+    try {
+      const currentAccount = get().wallet.currentAccount;
+      if (!currentAccount) return;
+
+      const transaction: CachedTransaction = {
+        txid,
+        type: 'sent',
+        amount,
+        fee,
+        address: to,
+        timestamp: Date.now(),
+        status: 'pending',
+      };
+
+      await send(INTERNAL_METHODS.ADD_TRANSACTION_TO_CACHE, [
+        currentAccount.address,
+        transaction,
+      ]);
+
+      // Refresh cached transactions
+      await get().fetchCachedTransactions();
+    } catch (error) {
+      console.error("Failed to add transaction to cache:", error);
     }
   },
 }));

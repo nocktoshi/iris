@@ -1,0 +1,39 @@
+/* --- Fonts (Google Fonts or self-host) --- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+:root {
+  --header-h: 120px;
+} /* fallback if JS measuring fails */
+
+/* Optional nicer scrollbar inside the popup */
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+}
+
+/* Wallet dropdown hover effect - show settings icon on hover */
+.wallet-dropdown-item .wallet-balance {
+  display: block;
+}
+.wallet-dropdown-item .wallet-settings-icon {
+  display: none;
+}
+.wallet-dropdown-item:hover .wallet-balance {
+  display: none;
+}
+.wallet-dropdown-item:hover .wallet-settings-icon {
+  display: flex;
+}
