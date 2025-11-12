@@ -227,8 +227,8 @@ export const AUTOLOCK_MINUTES = 15;
 /** Conversion rate: 1 NOCK = 65,536 nicks (2^16) */
 export const NOCK_TO_NICKS = 65_536;
 
-/** Default transaction fee in nicks (32,768 nicks = 0.5 NOCK) */
-export const DEFAULT_TRANSACTION_FEE = 32_768;
+/** Default transaction fee in nicks (1,835,008 nicks = 28 NOCK) */
+export const DEFAULT_TRANSACTION_FEE = 1_835_008;
 
 /**
  * User Activity Methods - Methods that count as user activity for auto-lock timer

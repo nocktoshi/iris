@@ -14,5 +14,5 @@
     "types": ["chrome", "vite/client"]
   },
   "include": ["extension/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist", "extension/generated/node/**/*"]
 }

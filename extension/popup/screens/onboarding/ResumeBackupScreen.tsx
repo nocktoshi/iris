@@ -52,7 +52,7 @@ export function ResumeBackupScreen() {
       {/* Header */}
       <div className="flex items-center justify-between h-16 px-4 py-3" style={{ borderBottom: '1px solid var(--color-divider)' }}>
         <button
-          onClick={() => navigate('home')}
+          onClick={() => navigate('onboarding-start')}
           className="p-2 -ml-2 hover:opacity-70 transition-opacity"
           aria-label="Go back"
         >

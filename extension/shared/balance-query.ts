@@ -8,6 +8,7 @@
 
 import { NockchainBrowserRPCClient } from './rpc-client-browser';
 import { getBothFirstNames } from './first-name-derivation';
+import { NOCK_TO_NICKS } from './constants';
 import type { Note } from './types';
 
 /**
@@ -84,8 +85,7 @@ export async function queryV1Balance(
   );
 
   // Convert to NOCK for display (1 NOCK = 65,536 nicks)
-  const NICKS_PER_NOCK = 65536;
-  const totalNock = Number(totalNicks) / NICKS_PER_NOCK;
+  const totalNock = Number(totalNicks) / NOCK_TO_NICKS;
 
   const result = {
     totalNicks,

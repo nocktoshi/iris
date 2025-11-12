@@ -48,6 +48,9 @@ export default defineConfig({
             if (assetInfo.name.includes('nbx_nockchain_types')) {
               return 'lib/nbx-nockchain-types/[name][extname]';
             }
+            if (assetInfo.name.includes('nbx_wasm')) {
+              return 'lib/nbx-wasm/[name][extname]';
+            }
             return 'lib/nbx-crypto/[name][extname]';
           }
           return 'assets/[name]-[hash][extname]';

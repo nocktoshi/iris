@@ -7,7 +7,7 @@ import { CachedTransaction } from '../types';
 /**
  * Set to true to use mock transactions instead of real cached data
  */
-export const USE_MOCK_TRANSACTIONS = true;
+export const USE_MOCK_TRANSACTIONS = false;
 
 export const MOCK_TRANSACTIONS: CachedTransaction[] = [
   {

@@ -450,6 +450,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         await emitWalletEvent('disconnect', { code: 1013, message: 'Wallet locked' });
         return;
 
+      case INTERNAL_METHODS.RESET_WALLET:
+        // Reset the wallet completely - clears all data
+        await vault.reset();
+        manuallyLocked = false;
+        sendResponse({ ok: true });
+
+        // Emit disconnect event
+        await emitWalletEvent('disconnect', { code: 1013, message: 'Wallet reset' });
+        return;
+
       case INTERNAL_METHODS.SETUP:
         // params: password, mnemonic (optional). If no mnemonic, generates one automatically.
         sendResponse(
@@ -535,8 +545,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return;
 
       case INTERNAL_METHODS.GET_BALANCE:
-        // TODO: Query blockchain for balance when WASM bindings are ready
-        sendResponse({ balance: 0 });
+        const balanceResult = await vault.getBalance();
+        if ('error' in balanceResult) {
+          sendResponse({ error: balanceResult.error });
+        } else {
+          sendResponse({
+            totalNock: balanceResult.totalNock,
+            totalNicks: balanceResult.totalNicks.toString(), // Convert bigint to string for JSON
+            utxoCount: balanceResult.utxoCount,
+          });
+        }
         return;
 
       // Transaction cache handlers
@@ -550,6 +568,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         // params: [accountAddress]
         const cachedTxs = await vault.getCachedTransactions(payload.params?.[0]);
         sendResponse({ transactions: cachedTxs });
+        return;
+
+      case INTERNAL_METHODS.UPDATE_TRANSACTION_STATUS:
+        // params: [accountAddress, txid, status]
+        await vault.updateTransactionStatus(payload.params?.[0], payload.params?.[1], payload.params?.[2]);
+        sendResponse({ ok: true });
         return;
 
       case INTERNAL_METHODS.SHOULD_REFRESH_CACHE:
@@ -772,6 +796,92 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           console.error('[Background] Transaction signing failed:', error);
           sendResponse({
             error: error instanceof Error ? error.message : 'Transaction signing failed'
+          });
+        }
+        return;
+
+      case INTERNAL_METHODS.BROADCAST_TRANSACTION:
+        // params: [rawTx] - raw signed transaction object
+        // Called from popup after building and signing the transaction
+        const [rawTx] = payload.params || [];
+
+        if (!rawTx) {
+          sendResponse({ error: 'Missing raw transaction' });
+          return;
+        }
+
+        try {
+          console.log('[Background] Broadcasting transaction...');
+
+          const result = await vault.broadcastTransaction(rawTx);
+
+          if ('error' in result) {
+            console.error('[Background] Broadcast failed:', result.error);
+            sendResponse({ error: result.error });
+            return;
+          }
+
+          console.log('[Background] Transaction broadcasted successfully:', result.txId);
+          sendResponse({
+            txid: result.txId,
+            broadcasted: result.broadcasted,
+          });
+        } catch (error) {
+          console.error('[Background] Broadcast failed:', error);
+          sendResponse({
+            error: error instanceof Error ? error.message : 'Broadcast failed'
+          });
+        }
+        return;
+
+      case INTERNAL_METHODS.SEND_TRANSACTION:
+        // params: [to, amount, fee] - amount and fee in nicks
+        // Called from popup Send screen - builds, signs, and broadcasts transaction
+        if (vault.isLocked()) {
+          sendResponse({ error: ERROR_CODES.LOCKED });
+          return;
+        }
+
+        const [sendTo, sendAmount, sendFee] = payload.params || [];
+        if (!isNockAddress(sendTo)) {
+          sendResponse({ error: ERROR_CODES.BAD_ADDRESS });
+          return;
+        }
+
+        if (typeof sendAmount !== 'number' || sendAmount <= 0) {
+          sendResponse({ error: 'Invalid amount' });
+          return;
+        }
+
+        if (typeof sendFee !== 'number' || sendFee < 0) {
+          sendResponse({ error: 'Invalid fee' });
+          return;
+        }
+
+        try {
+          console.log('[Background] Sending transaction:', {
+            to: sendTo.slice(0, 20) + '...',
+            amount: sendAmount,
+            fee: sendFee,
+          });
+
+          const result = await vault.sendTransaction(sendTo, sendAmount, sendFee);
+
+          if ('error' in result) {
+            console.error('[Background] Transaction failed:', result.error);
+            sendResponse({ error: result.error });
+            return;
+          }
+
+          console.log('[Background] Transaction sent successfully:', result.txId);
+          sendResponse({
+            txid: result.txId,
+            broadcasted: result.broadcasted,
+          });
+        } catch (error) {
+          console.error('[Background] Transaction sending failed:', error);
+          sendResponse({
+            error: error instanceof Error ? error.message : 'Transaction sending failed'
           });
         }
         return;

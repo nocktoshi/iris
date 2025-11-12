@@ -3,7 +3,7 @@ import { useStore } from '../store';
 import { useTheme } from '../contexts/ThemeContext';
 import { truncateAddress } from '../utils/format';
 import { send } from '../utils/messaging';
-import { INTERNAL_METHODS } from '../../shared/constants';
+import { INTERNAL_METHODS, DEFAULT_TRANSACTION_FEE, NOCK_TO_NICKS } from '../../shared/constants';
 import type { Account } from '../../shared/types';
 import { AccountIcon } from '../components/AccountIcon';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
@@ -24,9 +24,11 @@ export function SendScreen() {
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
   const [receiverAddress, setReceiverAddress] = useState('');
   const [amount, setAmount] = useState('');
-  const [fee, setFee] = useState('1');
+  // Default fee: 28 NOCK (1,835,008 nicks)
+  const defaultFeeNock = (DEFAULT_TRANSACTION_FEE / NOCK_TO_NICKS).toString();
+  const [fee, setFee] = useState(defaultFeeNock);
   const [isEditingFee, setIsEditingFee] = useState(false);
-  const [editedFee, setEditedFee] = useState('1');
+  const [editedFee, setEditedFee] = useState(defaultFeeNock);
   const [error, setError] = useState('');
 
   // Get real accounts from vault (filter out hidden accounts)

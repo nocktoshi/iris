@@ -6,7 +6,6 @@ import { send } from '../utils/messaging';
 import { INTERNAL_METHODS } from '../../shared/constants';
 import type { Account } from '../../shared/types';
 import { AccountIcon } from '../components/AccountIcon';
-import { Alert } from '../components/Alert';
 import { EyeIcon } from '../components/icons/EyeIcon';
 import { EyeOffIcon } from '../components/icons/EyeOffIcon';
 import { SendPaperPlaneIcon } from '../components/icons/SendPaperPlaneIcon';
@@ -149,6 +148,11 @@ export function HomeScreen() {
         accounts: [...wallet.accounts, result.account],
         currentAccount: result.account,
         address: result.account.address,
+        balance: 0, // Reset balance to 0 for new account
+        accountBalances: {
+          ...wallet.accountBalances,
+          [result.account.address]: 0, // Initialize new account balance to 0
+        },
       };
       syncWallet(updatedWallet);
 
@@ -156,7 +160,7 @@ export function HomeScreen() {
       console.log('[HomeScreen] Fetching balance for newly created account...');
       fetchBalance();
     } else if (result?.error) {
-      alert(`Failed to create account: ${result.error}`);
+      console.log(`[HomeScreen] Failed to create account: ${result.error}`);
     }
 
     setWalletDropdownOpen(false);
@@ -450,7 +454,11 @@ export function HomeScreen() {
                 boxShadow: '0 4px 12px 0 rgba(5, 5, 5, 0.12)',
               }}
             >
-              <DropdownItem icon={ExplorerIcon} label="View on explorer" onClick={() => window.open('https://nockscan.net/holders', '_blank')} />
+              <DropdownItem
+                icon={ExplorerIcon}
+                label="View on explorer"
+                onClick={() => window.open('https://nockscan.net/holders', '_blank')}
+              />
               <DropdownItem
                 icon={PermissionsIcon}
                 label="Wallet permissions"
@@ -676,7 +684,10 @@ export function HomeScreen() {
                         >
                           {t.amount}
                         </div>
-                        <div className="text-[12px] whitespace-nowrap" style={{ color: 'var(--color-text-muted)' }}>
+                        <div
+                          className="text-[12px] whitespace-nowrap"
+                          style={{ color: 'var(--color-text-muted)' }}
+                        >
                           {t.usdValue}
                         </div>
                       </div>
