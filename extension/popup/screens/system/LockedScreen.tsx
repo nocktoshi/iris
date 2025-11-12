@@ -17,7 +17,7 @@ export function LockedScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const { navigate, syncWallet, wallet } = useStore();
+  const { navigate, syncWallet, wallet, fetchBalance } = useStore();
 
   async function handleUnlock() {
     // Clear previous errors
@@ -53,7 +53,13 @@ export function LockedScreen() {
         accounts,
         currentAccount,
         balance: wallet.balance || 0,
+        accountBalances: wallet.accountBalances || {},
       });
+
+      // Trigger balance fetch after successful unlock
+      console.log('[LockedScreen] Unlock successful, triggering balance fetch...');
+      fetchBalance();
+
       navigate("home");
     }
   }
@@ -62,11 +68,15 @@ export function LockedScreen() {
     setShowResetConfirm(true);
   }
 
-  function confirmResetWallet() {
-    // Clear storage and restart onboarding
-    chrome.storage.local.clear(() => {
-      window.location.reload();
-    });
+  async function confirmResetWallet() {
+    // Reset the wallet via the background service
+    const result = await send<{ ok?: boolean }>(INTERNAL_METHODS.RESET_WALLET, []);
+
+    if (result?.ok) {
+      // Navigate to onboarding start
+      navigate('onboarding-start');
+      setShowResetConfirm(false);
+    }
   }
 
   function cancelResetWallet() {

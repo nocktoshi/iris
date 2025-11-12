@@ -2,43 +2,41 @@
  * Onboarding Create Screen - Set password and create wallet
  */
 
-import { useState } from "react";
-import { INTERNAL_METHODS, UI_CONSTANTS } from "../../../shared/constants";
-import { setOnboardingInProgress } from "../../../shared/onboarding";
-import { useStore } from "../../store";
-import { send } from "../../utils/messaging";
-import { Alert } from "../../components/Alert";
-import lockIcon from "../../assets/lock-icon.svg";
-import { EyeIcon } from "../../components/icons/EyeIcon";
-import { EyeOffIcon } from "../../components/icons/EyeOffIcon";
+import { useState } from 'react';
+import { INTERNAL_METHODS, UI_CONSTANTS } from '../../../shared/constants';
+import { setOnboardingInProgress } from '../../../shared/onboarding';
+import { useStore } from '../../store';
+import { send } from '../../utils/messaging';
+import { Alert } from '../../components/Alert';
+import lockIcon from '../../assets/lock-icon.svg';
+import { EyeIcon } from '../../components/icons/EyeIcon';
+import { EyeOffIcon } from '../../components/icons/EyeOffIcon';
 
 export function CreateScreen() {
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const { navigate, syncWallet, setOnboardingMnemonic } = useStore();
 
   async function handleCreate() {
     // Clear previous errors
-    setError("");
+    setError('');
 
     // Validate password
     if (!password) {
-      setError("Please enter a password");
+      setError('Please enter a password');
       return;
     }
 
     if (password.length < UI_CONSTANTS.MIN_PASSWORD_LENGTH) {
-      setError(
-        `Password must be at least ${UI_CONSTANTS.MIN_PASSWORD_LENGTH} characters`
-      );
+      setError(`Password must be at least ${UI_CONSTANTS.MIN_PASSWORD_LENGTH} characters`);
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError('Passwords do not match');
       return;
     }
 
@@ -57,11 +55,11 @@ export function CreateScreen() {
       await setOnboardingInProgress();
 
       // Store mnemonic temporarily for backup/verification flow
-      setOnboardingMnemonic(result.mnemonic || "");
-      // After setup, we have the first account (Account 1)
+      setOnboardingMnemonic(result.mnemonic || '');
+      // After setup, we have the first account (Wallet 1)
       const firstAccount = {
-        name: "Account 1",
-        address: result.address || "",
+        name: 'Wallet 1',
+        address: result.address || '',
         index: 0,
       };
       syncWallet({
@@ -70,8 +68,9 @@ export function CreateScreen() {
         accounts: [firstAccount],
         currentAccount: firstAccount,
         balance: 0, // New wallet starts with 0 balance
+        accountBalances: {},
       });
-      navigate("onboarding-backup");
+      navigate('onboarding-backup');
     }
   }
 
@@ -80,7 +79,7 @@ export function CreateScreen() {
       {/* Header with back button */}
       <div className="flex items-center justify-between h-16 px-4 py-3 border-b border-[var(--color-divider)]">
         <button
-          onClick={() => navigate("onboarding-start")}
+          onClick={() => navigate('onboarding-start')}
           className="p-2 -ml-2 hover:opacity-70 transition-opacity"
           aria-label="Go back"
         >
@@ -97,9 +96,9 @@ export function CreateScreen() {
         <h2
           className="font-sans font-medium text-[var(--color-text-primary)]"
           style={{
-            fontSize: "var(--font-size-lg)",
-            lineHeight: "var(--line-height-normal)",
-            letterSpacing: "0.01em",
+            fontSize: 'var(--font-size-lg)',
+            lineHeight: 'var(--line-height-normal)',
+            letterSpacing: '0.01em',
           }}
         >
           Create new wallet
@@ -118,9 +117,9 @@ export function CreateScreen() {
             <h1
               className="font-serif font-medium text-center text-[var(--color-text-primary)]"
               style={{
-                fontSize: "var(--font-size-xl)",
-                lineHeight: "var(--line-height-relaxed)",
-                letterSpacing: "-0.02em",
+                fontSize: 'var(--font-size-xl)',
+                lineHeight: 'var(--line-height-relaxed)',
+                letterSpacing: '-0.02em',
               }}
             >
               First, let's secure your
@@ -137,9 +136,9 @@ export function CreateScreen() {
                 htmlFor="password"
                 className="font-sans font-medium text-[var(--color-text-primary)]"
                 style={{
-                  fontSize: "var(--font-size-sm)",
-                  lineHeight: "var(--line-height-snug)",
-                  letterSpacing: "0.02em",
+                  fontSize: 'var(--font-size-sm)',
+                  lineHeight: 'var(--line-height-snug)',
+                  letterSpacing: '0.02em',
                 }}
               >
                 Create password
@@ -147,17 +146,17 @@ export function CreateScreen() {
               <div className="relative">
                 <input
                   id="password"
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => {
+                  onChange={e => {
                     setPassword(e.target.value);
-                    setError("");
+                    setError('');
                   }}
                   className="w-full h-[52px] px-3 py-4 bg-transparent border border-[var(--color-surface-700)] rounded-lg font-sans font-medium text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:border-[var(--color-primary)]"
                   style={{
-                    fontSize: "var(--font-size-base)",
-                    lineHeight: "var(--line-height-snug)",
-                    letterSpacing: "0.01em",
+                    fontSize: 'var(--font-size-base)',
+                    lineHeight: 'var(--line-height-snug)',
+                    letterSpacing: '0.01em',
                   }}
                   autoFocus
                 />
@@ -166,7 +165,7 @@ export function CreateScreen() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
                   tabIndex={-1}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
                     <EyeIcon className="w-4 h-4" />
@@ -183,9 +182,9 @@ export function CreateScreen() {
                 htmlFor="confirmPassword"
                 className="font-sans font-medium text-[var(--color-text-primary)]"
                 style={{
-                  fontSize: "var(--font-size-sm)",
-                  lineHeight: "var(--line-height-snug)",
-                  letterSpacing: "0.02em",
+                  fontSize: 'var(--font-size-sm)',
+                  lineHeight: 'var(--line-height-snug)',
+                  letterSpacing: '0.02em',
                 }}
               >
                 Confirm password
@@ -193,18 +192,18 @@ export function CreateScreen() {
               <div className="relative">
                 <input
                   id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
+                  type={showConfirmPassword ? 'text' : 'password'}
                   value={confirmPassword}
-                  onChange={(e) => {
+                  onChange={e => {
                     setConfirmPassword(e.target.value);
-                    setError("");
+                    setError('');
                   }}
-                  onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                  onKeyDown={e => e.key === 'Enter' && handleCreate()}
                   className="w-full h-[52px] px-3 py-4 bg-transparent border border-[var(--color-surface-700)] rounded-lg font-sans font-medium text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:border-[var(--color-primary)]"
                   style={{
-                    fontSize: "var(--font-size-base)",
-                    lineHeight: "var(--line-height-snug)",
-                    letterSpacing: "0.01em",
+                    fontSize: 'var(--font-size-base)',
+                    lineHeight: 'var(--line-height-snug)',
+                    letterSpacing: '0.01em',
                   }}
                 />
                 <button
@@ -212,9 +211,7 @@ export function CreateScreen() {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
                   tabIndex={-1}
-                  aria-label={
-                    showConfirmPassword ? "Hide password" : "Show password"
-                  }
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                 >
                   {showConfirmPassword ? (
                     <EyeIcon className="w-4 h-4" />
@@ -231,13 +228,13 @@ export function CreateScreen() {
             <p
               className="font-sans font-medium text-center text-[var(--color-text-muted)]"
               style={{
-                fontSize: "var(--font-size-xs)",
-                lineHeight: "var(--line-height-tight)",
-                letterSpacing: "0.02em",
+                fontSize: 'var(--font-size-xs)',
+                lineHeight: 'var(--line-height-tight)',
+                letterSpacing: '0.02em',
               }}
             >
-              This password encrypts your wallet on this device. Choose
-              something strong but memorable.
+              This password encrypts your wallet on this device. Choose something strong but
+              memorable.
             </p>
           </div>
 
@@ -255,11 +252,11 @@ export function CreateScreen() {
             onClick={handleCreate}
             className="w-full h-12 px-5 py-[15px] bg-[var(--color-text-primary)] text-[var(--color-bg)] rounded-lg flex items-center justify-center transition-opacity hover:opacity-90"
             style={{
-              fontFamily: "var(--font-sans)",
-              fontSize: "var(--font-size-base)",
+              fontFamily: 'var(--font-sans)',
+              fontSize: 'var(--font-size-base)',
               fontWeight: 500,
-              lineHeight: "var(--line-height-snug)",
-              letterSpacing: "0.01em",
+              lineHeight: 'var(--line-height-snug)',
+              letterSpacing: '0.01em',
             }}
           >
             Continue

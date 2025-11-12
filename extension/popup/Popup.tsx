@@ -58,6 +58,7 @@ export function Popup() {
           accounts: state.accounts || [],
           currentAccount: state.currentAccount || null,
           balance: wallet.balance || 0, // Preserve balance
+          accountBalances: wallet.accountBalances || {},
         });
         navigate("locked");
       }
