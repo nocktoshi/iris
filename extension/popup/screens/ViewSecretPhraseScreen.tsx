@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { useStore } from '../store';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
+import { CheckIcon } from '../components/icons/CheckIcon';
 import LockIcon from '../assets/lock-icon-yellow.svg';
+import { exportKeyfile, downloadKeyfile } from '../../shared/keyfile';
+import { Alert } from '../components/Alert';
 
 /**
  * ViewSecretPhraseScreen - Display user's 24-word recovery phrase
@@ -10,6 +13,9 @@ import LockIcon from '../assets/lock-icon-yellow.svg';
 export function ViewSecretPhraseScreen() {
   const { navigate, onboardingMnemonic, setOnboardingMnemonic } = useStore();
   const [isRevealed, setIsRevealed] = useState(false);
+  const [error, setError] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+  const [copiedSeed, setCopiedSeed] = useState(false);
 
   // Get seed phrase from temporary store (set by KeySettingsPasswordScreen)
   const seedPhrase = onboardingMnemonic ? onboardingMnemonic.split(' ') : [];
@@ -24,9 +30,37 @@ export function ViewSecretPhraseScreen() {
     setIsRevealed(true);
   }
 
+  async function handleCopySeedPhrase() {
+    if (onboardingMnemonic) {
+      try {
+        await navigator.clipboard.writeText(onboardingMnemonic);
+        setCopiedSeed(true);
+        setTimeout(() => setCopiedSeed(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy seed phrase:', err);
+      }
+    }
+  }
+
   function handleDownloadKeyfile() {
-    // TODO: Implement keyfile download
-    console.log('Download keyfile');
+    if (!onboardingMnemonic) {
+      setError('No mnemonic available');
+      return;
+    }
+
+    setIsExporting(true);
+    setError('');
+
+    try {
+      const keyfile = exportKeyfile(onboardingMnemonic);
+      const timestamp = new Date().toISOString().split('T')[0];
+      downloadKeyfile(keyfile, `nockchain-keyfile-${timestamp}.json`);
+    } catch (err) {
+      setError('Failed to export keyfile');
+      console.error(err);
+    } finally {
+      setIsExporting(false);
+    }
   }
 
   return (
@@ -75,9 +109,10 @@ export function ViewSecretPhraseScreen() {
           {/* Download Keyfile Link */}
           <button
             onClick={handleDownloadKeyfile}
-            className="font-sans font-medium text-sm tracking-[0.14px] leading-[18px] text-center underline hover:opacity-70 transition-opacity"
+            disabled={isExporting}
+            className="font-sans font-medium text-sm tracking-[0.14px] leading-[18px] text-center underline hover:opacity-70 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Download keyfile
+            {isExporting ? 'Downloading...' : 'Download keyfile'}
           </button>
 
           {/* Seed Phrase Grid */}
@@ -144,29 +179,25 @@ export function ViewSecretPhraseScreen() {
         style={{ borderTop: '1px solid var(--color-divider)', backgroundColor: 'var(--color-bg)' }}
       >
         <button
-          onClick={handleReveal}
-          disabled={isRevealed}
-          className="w-full h-12 rounded-lg font-sans font-medium text-sm tracking-[0.14px] leading-[18px] transition-opacity"
+          onClick={isRevealed ? handleCopySeedPhrase : handleReveal}
+          disabled={copiedSeed}
+          className="w-full h-12 rounded-lg font-sans font-medium text-sm tracking-[0.14px] leading-[18px] transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
           style={{
-            backgroundColor: isRevealed ? 'var(--color-surface-700)' : 'var(--color-primary)',
-            color: isRevealed ? 'var(--color-text-primary)' : '#000',
-            cursor: isRevealed ? 'not-allowed' : 'pointer',
-            opacity: isRevealed ? 0.5 : 1,
-          }}
-          onMouseEnter={(e) => {
-            if (!isRevealed) {
-              e.currentTarget.style.opacity = '0.9';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isRevealed) {
-              e.currentTarget.style.opacity = '1';
-            }
+            backgroundColor: 'var(--color-primary)',
+            color: '#000',
           }}
         >
-          {isRevealed ? 'Seed phrase revealed' : 'Show seed phrase'}
+          {copiedSeed && <CheckIcon className="w-5 h-5" />}
+          {!isRevealed ? 'Show seed phrase' : copiedSeed ? 'Copied!' : 'Copy Seed Phrase'}
         </button>
       </div>
+
+      {/* Error message */}
+      {error && (
+        <div className="px-4 pb-3">
+          <Alert type="error">{error}</Alert>
+        </div>
+      )}
     </div>
   );
 }

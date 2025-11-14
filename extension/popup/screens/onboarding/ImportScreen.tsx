@@ -16,7 +16,7 @@ import { InfoIcon } from '../../components/icons/InfoIcon';
 import { importKeyfile, type Keyfile } from '../../../shared/keyfile';
 
 export function ImportScreen() {
-  const { navigate, syncWallet, setOnboardingMnemonic } = useStore();
+  const { navigate, syncWallet, onboardingMnemonic, setOnboardingMnemonic } = useStore();
   const [words, setWords] = useState<string[]>(Array(UI_CONSTANTS.MNEMONIC_WORD_COUNT).fill(''));
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -92,7 +92,8 @@ export function ImportScreen() {
   }
 
   async function handleImport() {
-    const mnemonic = words.join(' ').trim();
+    // Use stored mnemonic (set either by manual entry or keyfile import)
+    const mnemonic = onboardingMnemonic || words.join(' ').trim();
 
     // Validate password
     if (!password) {
@@ -172,15 +173,18 @@ export function ImportScreen() {
         // Import keyfile to get mnemonic
         const mnemonic = importKeyfile(keyfile);
 
-        // Split into words and populate the form
+        // Validate mnemonic has correct number of words
         const importedWords = mnemonic.trim().split(/\s+/);
-        if (importedWords.length === UI_CONSTANTS.MNEMONIC_WORD_COUNT) {
-          setWords(importedWords);
-          setShowKeyfileImport(false);
-          setError('');
-        } else {
+        if (importedWords.length !== UI_CONSTANTS.MNEMONIC_WORD_COUNT) {
           setError('Invalid keyfile: expected 24 words');
+          return;
         }
+
+        // Skip word display - go directly to password setup
+        setOnboardingMnemonic(mnemonic);
+        setShowKeyfileImport(false);
+        setStep('password');
+        setError('');
       } catch (error) {
         setError(error instanceof Error ? error.message : 'Invalid keyfile format');
       }
@@ -605,7 +609,7 @@ export function ImportScreen() {
               className="font-sans text-sm tracking-[0.14px] leading-[18px]"
               style={{ color: 'var(--color-text-muted)' }}
             >
-              Select your keyfile to auto-fill your recovery phrase.
+              Select your keyfile to import your wallet.
             </p>
 
             {/* File input */}
