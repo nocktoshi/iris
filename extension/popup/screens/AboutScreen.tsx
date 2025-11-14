@@ -13,15 +13,19 @@ export function AboutScreen() {
   }
 
   function handlePrivacyPolicy() {
-    window.open('https://example.com/privacy', '_blank');
+    window.open('https://iriswallet.io/privacy-policy', '_blank');
   }
 
   function handleTermsOfUse() {
-    window.open('https://example.com/terms', '_blank');
+    window.open('https://iriswallet.io/terms-of-use', '_blank');
   }
 
   function handleVisitWebsite() {
     window.open('https://nockbox.org', '_blank');
+  }
+
+  function handleFAQ() {
+    window.open('https://iriswallet.io/faq', '_blank');
   }
 
   return (
@@ -94,6 +98,14 @@ export function AboutScreen() {
               className="text-left bg-transparent p-0 text-base font-medium leading-[22px] tracking-[0.16px] underline underline-offset-2 transition-opacity hover:opacity-70 focus:outline-none focus-visible:ring-2"
             >
               Terms of use
+            </button>
+
+            <button
+              type="button"
+              onClick={handleFAQ}
+              className="text-left bg-transparent p-0 text-base font-medium leading-[22px] tracking-[0.16px] underline underline-offset-2 transition-opacity hover:opacity-70 focus:outline-none focus-visible:ring-2"
+            >
+              FAQ
             </button>
 
             <button

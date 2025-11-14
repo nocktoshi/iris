@@ -71,9 +71,6 @@ export function TransactionDetailsScreen() {
     navigator.clipboard.writeText(transactionId);
     // TODO: Show a toast notification that it was copied
   }
-  function handleActivityLog() {
-    console.log('Toggle activity log');
-  }
 
   const statusColor =
     status === 'Confirmed'
@@ -239,22 +236,6 @@ export function TransactionDetailsScreen() {
               </button>
             </div>
           </div>
-
-          {/* Activity Log */}
-          <button
-            type="button"
-            onClick={handleActivityLog}
-            className="flex items-center justify-between p-3 rounded-lg transition-colors focus:outline-none focus-visible:ring-2"
-            style={{
-              backgroundColor: 'var(--color-surface-800)',
-              color: 'var(--color-text-primary)',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--color-surface-700)')}
-            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'var(--color-surface-800)')}
-          >
-            <div className="text-sm font-medium leading-[18px] tracking-[0.14px]">Activity log</div>
-            <div className="text-[20px] leading-none">+</div>
-          </button>
         </div>
       </div>
     </div>

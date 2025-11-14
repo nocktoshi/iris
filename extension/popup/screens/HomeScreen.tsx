@@ -8,6 +8,7 @@ import type { Account } from '../../shared/types';
 import { AccountIcon } from '../components/AccountIcon';
 import { EyeIcon } from '../components/icons/EyeIcon';
 import { EyeOffIcon } from '../components/icons/EyeOffIcon';
+import { CheckIcon } from '../components/icons/CheckIcon';
 import { SendPaperPlaneIcon } from '../components/icons/SendPaperPlaneIcon';
 import { ReceiveCircleIcon } from '../components/icons/ReceiveCircleIcon';
 import { ReceiveArrowIcon } from '../components/icons/ReceiveArrowIcon';
@@ -25,6 +26,7 @@ import FeedbackIcon from '../assets/feedback-icon.svg';
 import CopyIcon from '../assets/copy-icon.svg';
 import SettingsGearIcon from '../assets/settings-gear-icon.svg';
 import RefreshIcon from '../assets/refresh-icon.svg';
+import ReceiptIcon from '../assets/receipt-icon.svg';
 
 import './HomeScreen.tailwind.css';
 
@@ -46,6 +48,7 @@ export function HomeScreen() {
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
   const [settingsDropdownOpen, setSettingsDropdownOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [copiedAddress, setCopiedAddress] = useState(false);
 
   const headerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -312,13 +315,23 @@ export function HomeScreen() {
                   <span className="truncate">{walletAddress}</span>
                   <button
                     className="shrink-0 opacity-70 hover:opacity-40"
-                    onClick={e => {
+                    onClick={async (e) => {
                       e.stopPropagation();
-                      navigator.clipboard.writeText(fullAddress);
+                      try {
+                        await navigator.clipboard.writeText(fullAddress);
+                        setCopiedAddress(true);
+                        setTimeout(() => setCopiedAddress(false), 2000);
+                      } catch (err) {
+                        console.error('Failed to copy address:', err);
+                      }
                     }}
                     aria-label="Copy address"
                   >
-                    <img src={CopyIcon} alt="" className="h-3 w-3" />
+                    {copiedAddress ? (
+                      <CheckIcon className="h-3 w-3" />
+                    ) : (
+                      <img src={CopyIcon} alt="" className="h-3 w-3" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -435,7 +448,7 @@ export function HomeScreen() {
                   style={{ backgroundColor: 'var(--color-text-primary)', color: 'var(--color-bg)' }}
                   onClick={handleAddAccount}
                 >
-                  Add account
+                  Add Wallet
                 </button>
               </div>
             </div>
@@ -476,7 +489,11 @@ export function HomeScreen() {
                 }}
               />
               <div className="h-px my-1" style={{ backgroundColor: 'var(--color-divider)' }} />
-              <DropdownItem icon={FeedbackIcon} label="Wallet feedback" onClick={() => {}} />
+              <DropdownItem
+                icon={FeedbackIcon}
+                label="Wallet feedback"
+                onClick={() => window.open('https://iriswallet.io/feedback', '_blank')}
+              />
             </div>
           </>
         )}
@@ -565,7 +582,7 @@ export function HomeScreen() {
         </div>
 
         <section
-          className={`relative z-20 shadow-card rounded-xl transition-all duration-300 flex-1 ${
+          className={`relative z-20 shadow-card rounded-t-xl transition-all duration-300 flex-1 flex flex-col ${
             isTransactionsStuck ? '' : 'mx-2 mt-4'
           }`}
           style={{
@@ -607,8 +624,33 @@ export function HomeScreen() {
           </div>
 
           {/* Groups */}
-          <div className="px-4 pb-6">
-            {transactions.map((group, idx) => (
+          <div className="px-4 pb-6 flex-1 flex flex-col">
+            {cachedTransactions.length === 0 ? (
+              /* Empty state */
+              <div className="flex flex-col items-center justify-center gap-2 flex-1">
+                <div
+                  className="h-10 w-10 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'var(--color-tx-icon)' }}
+                >
+                  <img src={ReceiptIcon} alt="" className="h-5 w-5" />
+                </div>
+                <div className="text-center">
+                  <p
+                    className="font-display font-medium text-[14px] leading-[18px] tracking-[0.14px] m-0"
+                    style={{ color: 'var(--color-text-muted)' }}
+                  >
+                    No activity yet.
+                  </p>
+                  <p
+                    className="font-display font-medium text-[14px] leading-[18px] tracking-[0.14px] m-0"
+                    style={{ color: 'var(--color-text-muted)' }}
+                  >
+                    Make your first NOCK transaction.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              transactions.map((group, idx) => (
               <div
                 key={idx}
                 className={idx === 0 ? 'pt-4' : 'pt-4'}
@@ -695,11 +737,10 @@ export function HomeScreen() {
                   ))}
                 </div>
               </div>
-            ))}
+            ))
+            )}
           </div>
         </section>
-
-        <div className="h-6" />
       </div>
     </div>
   );

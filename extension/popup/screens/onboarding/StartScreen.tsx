@@ -19,19 +19,19 @@ export function StartScreen() {
       <img
         src={vectorLeft}
         alt=""
-        className="absolute left-[-11px] top-[199px] w-[89px] h-[70px] opacity-30"
+        className="absolute left-[-11px] top-[199px] w-[89px] h-[70px]"
         aria-hidden="true"
       />
       <img
         src={vectorRight}
         alt=""
-        className="absolute left-[305px] top-[311px] w-[52px] h-[83px] opacity-30"
+        className="absolute left-[305px] top-[311px] w-[52px] h-[83px]"
         aria-hidden="true"
       />
       <img
         src={vectorTopRight}
         alt=""
-        className="absolute left-[296px] top-[122px] w-[80px] h-[45px] opacity-30"
+        className="absolute left-[296px] top-[122px] w-[80px] h-[45px]"
         aria-hidden="true"
       />
       <div
@@ -47,13 +47,13 @@ export function StartScreen() {
         <img
           src={vectorTopRightRotated}
           alt=""
-          className="w-[63px] h-[67px] opacity-30"
+          className="w-[63px] h-[67px]"
         />
       </div>
       <img
         src={vectorBottomLeft}
         alt=""
-        className="absolute left-[-23px] top-[362px] w-[64px] h-[64px] opacity-30"
+        className="absolute left-[-23px] top-[362px] w-[64px] h-[64px]"
         aria-hidden="true"
       />
 

@@ -215,7 +215,7 @@ export function WalletSettingsScreen() {
                   <img src={UserAccountIcon} alt="Account" className="w-5 h-5" />
                 </div>
                 <div className="text-sm font-medium leading-[18px] tracking-[0.14px]">
-                  Account name
+                  Wallet name
                 </div>
               </div>
 
@@ -253,7 +253,9 @@ export function WalletSettingsScreen() {
                   onMouseEnter={e =>
                     (e.currentTarget.style.backgroundColor = 'var(--color-surface-700)')
                   }
-                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'var(--color-surface-800)')}
+                  onMouseLeave={e =>
+                    (e.currentTarget.style.backgroundColor = 'var(--color-surface-800)')
+                  }
                 >
                   <span
                     className="text-sm font-medium leading-[18px] tracking-[0.14px] whitespace-nowrap"
@@ -332,11 +334,7 @@ export function WalletSettingsScreen() {
               Wallet created on {walletCreatedDate}
             </div>
             <div className="flex items-center justify-center rounded-lg py-2 px-3">
-              <AccountIcon
-                styleId={1}
-                color="var(--color-text-muted)"
-                className="w-4 h-4"
-              />
+              <AccountIcon styleId={1} color="var(--color-text-muted)" className="w-4 h-4" />
             </div>
           </div>
 
@@ -371,7 +369,7 @@ export function WalletSettingsScreen() {
       {/* Last Account Error Modal */}
       <ConfirmModal
         isOpen={showLastAccountError}
-        title="Cannot Remove Account"
+        title="Cannot Remove Wallet"
         message="You cannot remove your last visible account. You must have at least one account in your wallet."
         confirmText="OK"
         onConfirm={() => setShowLastAccountError(false)}
