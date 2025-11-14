@@ -1,115 +1,107 @@
-/**
- * Sign Message Screen - Approve or reject message signing requests from dApps
- */
-
 import { useStore } from "../../store";
-import { ScreenContainer } from "../../components/ScreenContainer";
 import { ChevronLeftIcon } from "../../components/icons/ChevronLeftIcon";
-import { Alert } from "../../components/Alert";
+import { AccountIcon } from "../../components/AccountIcon";
 import { truncateAddress } from "../../utils/format";
 import { send } from "../../utils/messaging";
 import { INTERNAL_METHODS } from "../../../shared/constants";
 import { useAutoRejectOnClose } from "../../hooks/useAutoRejectOnClose";
 
 export function SignMessageScreen() {
-  const { navigate, pendingSignRequest, setPendingSignRequest, wallet } =
-    useStore();
+  const { navigate, pendingSignRequest, setPendingSignRequest, wallet } = useStore();
 
   if (!pendingSignRequest) {
-    // No pending request, redirect to home
     navigate("home");
     return null;
   }
 
   const { id, origin, message } = pendingSignRequest;
-  const currentAccount = wallet.currentAccount;
 
-  // Auto-reject when window closes without user action
   useAutoRejectOnClose(id, INTERNAL_METHODS.REJECT_SIGN_MESSAGE);
 
   async function handleDecline() {
-    try {
-      await send(INTERNAL_METHODS.REJECT_SIGN_MESSAGE, [id]);
-      setPendingSignRequest(null);
-      window.close(); // Close approval popup
-    } catch (error) {
-      console.error("Failed to reject sign message:", error);
-    }
+    await send(INTERNAL_METHODS.REJECT_SIGN_MESSAGE, [id]);
+    setPendingSignRequest(null);
+    window.close();
   }
 
   async function handleSign() {
-    try {
-      await send(INTERNAL_METHODS.APPROVE_SIGN_MESSAGE, [id]);
-      setPendingSignRequest(null);
-      window.close(); // Close approval popup
-    } catch (error) {
-      console.error("Failed to approve sign message:", error);
-    }
+    await send(INTERNAL_METHODS.APPROVE_SIGN_MESSAGE, [id]);
+    setPendingSignRequest(null);
+    window.close();
   }
 
+  const bg = 'var(--color-bg)';
+  const surface = 'var(--color-surface-800)';
+  const textPrimary = 'var(--color-text-primary)';
+  const textMuted = 'var(--color-text-muted)';
+  const divider = 'var(--color-divider)';
+
   return (
-    <ScreenContainer className="flex flex-col">
+    <div className="w-[357px] h-screen flex flex-col" style={{ backgroundColor: bg }}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <button
-          onClick={handleDecline}
-          className="transition-colors"
-          style={{ color: 'var(--color-text-primary)' }}
-        >
+      <div className="flex items-center gap-3 px-4 py-2.5 shrink-0">
+        <button onClick={handleDecline} style={{ color: textPrimary }}>
           <ChevronLeftIcon />
         </button>
-        <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+        <h2 className="text-xl font-semibold" style={{ color: textPrimary }}>
           Sign Message
         </h2>
       </div>
 
-      {/* Site Origin */}
-      <div className="mb-6">
-        <label className="text-sm block mb-2" style={{ color: 'var(--color-text-muted)' }}>
-          Requesting Site
-        </label>
-        <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-surface-800)' }}>
-          <p className="text-sm font-medium break-all" style={{ color: 'var(--color-text-primary)' }}>
-            {origin}
-          </p>
+      {/* Content */}
+      <div className="px-4 pb-2">
+        {/* Site Info */}
+        <div className="mb-3">
+          <label className="text-xs block mb-1.5 font-medium" style={{ color: textMuted }}>
+            Requesting Site
+          </label>
+          <div className="rounded-lg p-3" style={{ backgroundColor: surface }}>
+            <p className="text-sm font-semibold mb-0.5" style={{ color: textPrimary }}>
+              {origin.includes('://') ? new URL(origin).hostname : origin}
+            </p>
+            <p className="text-xs break-all" style={{ color: textMuted }}>
+              {origin}
+            </p>
+          </div>
+        </div>
+
+        {/* Message Content */}
+        <div className="mb-3">
+          <label className="text-xs block mb-1.5 font-medium" style={{ color: textMuted }}>
+            Message
+          </label>
+          <div className="rounded-lg p-3 max-h-48 overflow-y-auto" style={{ backgroundColor: surface }}>
+            <pre className="text-sm whitespace-pre-wrap break-words font-mono" style={{ color: textPrimary }}>
+              {message}
+            </pre>
+          </div>
+        </div>
+
+        {/* Account */}
+        <div>
+          <label className="text-xs block mb-1.5 font-medium" style={{ color: textMuted }}>
+            Signing Account
+          </label>
+          <div className="rounded-lg p-3 flex items-center gap-2.5" style={{ backgroundColor: surface }}>
+            <AccountIcon 
+              styleId={wallet.currentAccount?.iconStyleId} 
+              color={wallet.currentAccount?.iconColor} 
+              className="w-8 h-8 shrink-0" 
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium" style={{ color: textPrimary }}>
+                {wallet.currentAccount?.name || "Unknown"}
+              </p>
+              <p className="text-xs font-mono mt-0.5" style={{ color: textMuted }}>
+                {truncateAddress(wallet.currentAccount?.address)}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Message Content */}
-      <div className="mb-6">
-        <label className="text-sm block mb-2" style={{ color: 'var(--color-text-muted)' }}>
-          Message
-        </label>
-        <div className="rounded-lg p-4 max-h-48 overflow-y-auto" style={{ backgroundColor: 'var(--color-surface-800)' }}>
-          <pre className="text-sm whitespace-pre-wrap break-words font-mono" style={{ color: 'var(--color-text-primary)' }}>
-            {message}
-          </pre>
-        </div>
-      </div>
-
-      {/* Account Info */}
-      <div className="mb-6">
-        <label className="text-sm block mb-2" style={{ color: 'var(--color-text-muted)' }}>
-          Signing Account
-        </label>
-        <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-surface-800)' }}>
-          <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-            {currentAccount?.name || "Unknown"}
-          </p>
-          <p className="text-xs font-mono mt-1" style={{ color: 'var(--color-text-muted)' }}>
-            {truncateAddress(currentAccount?.address)}
-          </p>
-        </div>
-      </div>
-
-      {/* Warning */}
-      {/* <Alert type="warning" className="mb-6">
-        Only sign messages you understand from sites you trust. Your signature can be used to
-        authorize actions on your behalf.
-      </Alert> */}
-
-      {/* Action Buttons */}
-      <div className="flex gap-3 mt-auto">
+      {/* Footer Buttons */}
+      <div className="mt-auto px-4 py-2.5 shrink-0 flex gap-3" style={{ borderTop: `1px solid ${divider}` }}>
         <button onClick={handleDecline} className="btn-secondary flex-1">
           Decline
         </button>
@@ -117,6 +109,6 @@ export function SignMessageScreen() {
           Sign
         </button>
       </div>
-    </ScreenContainer>
+    </div>
   );
 }
