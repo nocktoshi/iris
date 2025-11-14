@@ -23,6 +23,8 @@ export interface Account {
   hidden?: boolean;
   /** Timestamp when the account was created (milliseconds since epoch) */
   createdAt?: number;
+  /** Derivation path: 'master' (master key) or 'derived' (child key at index) */
+  derivation?: 'master' | 'slip10';
 }
 
 /**

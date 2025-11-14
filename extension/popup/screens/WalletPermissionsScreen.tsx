@@ -20,7 +20,7 @@ export function WalletPermissionsScreen() {
   }
 
   function handleClose() {
-    navigate('settings');
+    navigate('home');
   }
 
   async function handleRevoke(origin: string) {

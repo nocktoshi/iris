@@ -91,21 +91,6 @@ export function BackupScreen() {
             </h1>
           </div>
 
-          {/* Import keyfile link */}
-          <button
-            onClick={() => {
-              /* TODO: Implement import keyfile */
-            }}
-            className="font-sans font-medium text-center text-[var(--color-text-primary)] underline"
-            style={{
-              fontSize: "var(--font-size-base)",
-              lineHeight: "var(--line-height-snug)",
-              letterSpacing: "0.01em",
-            }}
-          >
-            Import keyfile
-          </button>
-
           {/* Recovery phrase section */}
           <div className="flex flex-col gap-3">
             {/* Warning box */}

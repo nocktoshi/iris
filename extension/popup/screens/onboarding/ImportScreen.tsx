@@ -12,6 +12,8 @@ import { send } from '../../utils/messaging';
 import lockIcon from '../../assets/lock-icon.svg';
 import { EyeIcon } from '../../components/icons/EyeIcon';
 import { EyeOffIcon } from '../../components/icons/EyeOffIcon';
+import { InfoIcon } from '../../components/icons/InfoIcon';
+import { importKeyfile, type Keyfile } from '../../../shared/keyfile';
 
 export function ImportScreen() {
   const { navigate, syncWallet, setOnboardingMnemonic } = useStore();
@@ -24,6 +26,10 @@ export function ImportScreen() {
   const [step, setStep] = useState<'mnemonic' | 'password'>('mnemonic');
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const firstInputRef = useAutoFocus<HTMLInputElement>();
+
+  // Keyfile import state
+  const [showKeyfileImport, setShowKeyfileImport] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleWordChange(index: number, value: string) {
     const trimmedValue = value.trim().toLowerCase();
@@ -145,6 +151,48 @@ export function ImportScreen() {
       setStep('mnemonic');
     } else {
       navigate('onboarding-start');
+    }
+  }
+
+  // Keyfile import handlers
+  function handleImportKeyfileClick() {
+    setShowKeyfileImport(true);
+    setError('');
+  }
+
+  function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const keyfile = JSON.parse(e.target?.result as string) as Keyfile;
+
+        // Import keyfile to get mnemonic
+        const mnemonic = importKeyfile(keyfile);
+
+        // Split into words and populate the form
+        const importedWords = mnemonic.trim().split(/\s+/);
+        if (importedWords.length === UI_CONSTANTS.MNEMONIC_WORD_COUNT) {
+          setWords(importedWords);
+          setShowKeyfileImport(false);
+          setError('');
+        } else {
+          setError('Invalid keyfile: expected 24 words');
+        }
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'Invalid keyfile format');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function handleCancelKeyfileImport() {
+    setShowKeyfileImport(false);
+    setError('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   }
 
@@ -420,6 +468,51 @@ export function ImportScreen() {
               </p>
             </div>
 
+            {/* V1 wallet warning */}
+            <div
+              className="flex items-start gap-2 p-3 rounded-lg"
+              style={{
+                backgroundColor: 'var(--color-surface-800)',
+                border: '1px solid var(--color-surface-700)',
+              }}
+            >
+              <InfoIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p
+                  className="font-sans text-[var(--color-text-muted)]"
+                  style={{
+                    fontSize: 'var(--font-size-sm)',
+                    lineHeight: 'var(--line-height-snug)',
+                    letterSpacing: '0.01em',
+                  }}
+                >
+                  Only V1 wallets are supported. If you use a seed phrase from V0, this will create a new V1 wallet.{' '}
+                  <a
+                    href="https://iriswallet.io/faq"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:opacity-70"
+                    style={{ color: 'var(--color-primary)' }}
+                  >
+                    Learn more
+                  </a>
+                </p>
+              </div>
+            </div>
+
+            {/* Import keyfile link */}
+            <button
+              onClick={handleImportKeyfileClick}
+              className="font-sans font-medium text-center text-[var(--color-text-primary)] underline hover:opacity-70 transition-opacity"
+              style={{
+                fontSize: 'var(--font-size-base)',
+                lineHeight: 'var(--line-height-snug)',
+                letterSpacing: '0.01em',
+              }}
+            >
+              Or import from keyfile
+            </button>
+
             {/* 24-word input grid */}
             <div className="flex flex-col gap-2 w-full pb-4">
               {Array.from({ length: 12 }).map((_, rowIndex) => (
@@ -494,6 +587,70 @@ export function ImportScreen() {
           </button>
         </div>
       </div>
+
+      {/* Keyfile Import Modal */}
+      {showKeyfileImport && (
+        <div
+          className="absolute inset-0 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', zIndex: 50 }}
+        >
+          <div
+            className="w-full max-w-[325px] rounded-lg p-4 flex flex-col gap-4"
+            style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-surface-800)' }}
+          >
+            <h3 className="font-sans font-medium text-base tracking-[0.16px] leading-[22px]">
+              Import from keyfile
+            </h3>
+            <p
+              className="font-sans text-sm tracking-[0.14px] leading-[18px]"
+              style={{ color: 'var(--color-text-muted)' }}
+            >
+              Select your keyfile to auto-fill your recovery phrase.
+            </p>
+
+            {/* File input */}
+            <div className="flex flex-col gap-1.5">
+              <label className="font-sans font-medium text-sm tracking-[0.14px] leading-[18px]">
+                Select keyfile
+              </label>
+              <input
+                ref={fileInputRef}
+                id="keyfile-upload"
+                type="file"
+                accept=".json"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full h-[52px] px-4 rounded-lg font-sans font-medium text-sm tracking-[0.14px] leading-[18px] text-left transition-opacity hover:opacity-90"
+                style={{
+                  backgroundColor: 'var(--color-surface-700)',
+                  color: 'var(--color-text-primary)',
+                  border: '1px solid var(--color-surface-800)',
+                }}
+              >
+                Choose File
+              </button>
+            </div>
+
+            {error && <Alert type="error">{error}</Alert>}
+
+            {/* Cancel button */}
+            <button
+              onClick={handleCancelKeyfileImport}
+              className="w-full h-12 rounded-lg font-sans font-medium text-sm tracking-[0.14px] leading-[18px] transition-opacity hover:opacity-90"
+              style={{
+                backgroundColor: 'var(--color-surface-700)',
+                color: 'var(--color-text-primary)',
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
