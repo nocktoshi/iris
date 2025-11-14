@@ -3,17 +3,17 @@
  */
 
 import { encryptGCM, decryptGCM, deriveKeyPBKDF2, rand, PBKDF2_ITERATIONS } from './webcrypto';
-import { generateMnemonic, deriveAddress, validateMnemonic } from './wallet-crypto';
-import { ERROR_CODES, STORAGE_KEYS, ACCOUNT_COLORS } from './constants';
-import { Account } from './types';
 import {
-  buildPayment,
-  createSinglePKHSpendCondition,
-  calculateNoteDataHash,
-  type Note as TxBuilderNote,
-} from './transaction-builder';
+  generateMnemonic,
+  deriveAddress,
+  deriveAddressFromMaster,
+  validateMnemonic,
+} from './wallet-crypto';
+import { ERROR_CODES, STORAGE_KEYS, ACCOUNT_COLORS, PRESET_WALLET_STYLES } from './constants';
+import { Account } from './types';
+import { buildPayment, type Note as TxBuilderNote } from './transaction-builder';
 import initCryptoWasm, { signDigest, tip5Hash } from '../lib/nbx-crypto/nbx_crypto.js';
-import initWasmTx, { deriveMasterKeyFromMnemonic, hashU64 } from '../lib/nbx-wasm/nbx_wasm.js';
+import initWasmTx, { deriveMasterKeyFromMnemonic } from '../lib/nbx-wasm/nbx_wasm.js';
 import { queryV1Balance } from './balance-query';
 import { createBrowserClient } from './rpc-client-browser';
 import type { Note as BalanceNote } from './types';
@@ -27,7 +27,10 @@ import { USE_MOCK_TRANSACTIONS, MOCK_TRANSACTIONS } from './mocks/transactions';
  *
  * NOTE: Prefers pre-computed base58 values from the RPC response to avoid WASM init issues
  */
-async function convertNoteForTxBuilder(note: BalanceNote): Promise<TxBuilderNote> {
+async function convertNoteForTxBuilder(
+  note: BalanceNote,
+  ownerPKH: string
+): Promise<TxBuilderNote> {
   // Use pre-computed base58 strings if available (from WASM gRPC client)
   let nameFirst: string;
   let nameLast: string;
@@ -47,11 +50,12 @@ async function convertNoteForTxBuilder(note: BalanceNote): Promise<TxBuilderNote
     console.log('[Vault] Using pre-computed noteDataHash from RPC response');
     noteDataHash = note.noteDataHashBase58;
   } else {
-    // Try hash(0) - based on test code in builder.rs:122
-    // The backend's test uses: note_data_hash: 0.hash()
-    console.log('[Vault] Trying hash(0) as noteDataHash (matching backend test code)');
-    noteDataHash = hashU64(0);
-    console.log('[Vault] Computed hash(0):', noteDataHash.slice(0, 20) + '...');
+    // Fallback to empty string if not provided
+    // The protoNote field will be used by WasmNote.fromProtobuf() instead
+    console.warn(
+      '[Vault] No noteDataHashBase58 - relying on protoNote for WasmNote.fromProtobuf()'
+    );
+    noteDataHash = '';
   }
 
   return {
@@ -60,6 +64,7 @@ async function convertNoteForTxBuilder(note: BalanceNote): Promise<TxBuilderNote
     nameLast,
     noteDataHash,
     assets: note.assets,
+    protoNote: note.protoNote, // Pass through for WasmNote.fromProtobuf()
   };
 }
 
@@ -119,11 +124,21 @@ export class Vault {
     }
 
     // Create first account (Wallet 1 at index 0)
+    // Use first preset style for consistent initial experience
+    const firstPreset = PRESET_WALLET_STYLES[0];
+
+    console.log('[Vault.setup] Deriving address from master key...');
+    const masterAddress = await deriveAddressFromMaster(words);
+    console.log('[Vault.setup] Got master address:', masterAddress);
+
     const firstAccount: Account = {
       name: 'Wallet 1',
-      address: await deriveAddress(words, 0),
+      address: masterAddress,
       index: 0,
+      iconStyleId: firstPreset.iconStyleId,
+      iconColor: firstPreset.iconColor,
       createdAt: Date.now(),
+      derivation: 'master',
     };
 
     // Generate PBKDF2 salt and derive encryption key
@@ -324,15 +339,29 @@ export class Vault {
     const nextIndex = this.state.accounts.length;
     const accountName = name || `Wallet ${nextIndex + 1}`;
 
-    // Pick a random color from available account colors
-    const randomColor = ACCOUNT_COLORS[Math.floor(Math.random() * ACCOUNT_COLORS.length)];
+    // Use preset style if available, otherwise random
+    let iconStyleId: number;
+    let iconColor: string;
+
+    if (nextIndex < PRESET_WALLET_STYLES.length) {
+      // Use predetermined style for first 21 wallets
+      const preset = PRESET_WALLET_STYLES[nextIndex];
+      iconStyleId = preset.iconStyleId;
+      iconColor = preset.iconColor;
+    } else {
+      // After presets exhausted, use random selection
+      iconColor = ACCOUNT_COLORS[Math.floor(Math.random() * ACCOUNT_COLORS.length)];
+      iconStyleId = Math.floor(Math.random() * 15) + 1;
+    }
 
     const newAccount: Account = {
       name: accountName,
       address: await deriveAddress(this.mnemonic, nextIndex),
       index: nextIndex,
-      iconColor: randomColor,
+      iconStyleId,
+      iconColor,
       createdAt: Date.now(),
+      derivation: 'slip10', // Additional accounts use child derivation
     };
 
     const updatedAccounts = [...this.state.accounts, newAccount];
@@ -559,11 +588,8 @@ export class Vault {
     }
 
     // Initialize WASM modules
-    // In service worker context, we need to provide the explicit URLs
-    // Both init functions are idempotent - they return immediately if already initialized
     const cryptoWasmUrl = chrome.runtime.getURL('lib/nbx-crypto/nbx_crypto_bg.wasm');
     const wasmTxUrl = chrome.runtime.getURL('lib/nbx-wasm/nbx_wasm_bg.wasm');
-
     await Promise.all([
       initCryptoWasm({ module_or_path: cryptoWasmUrl }),
       initWasmTx({ module_or_path: wasmTxUrl }),
@@ -572,13 +598,19 @@ export class Vault {
     const msg = (Array.isArray(params) ? params[0] : params) ?? '';
     const msgBytes = new TextEncoder().encode(String(msg));
 
-    // Derive the account's private key
+    // Derive the account's private key based on derivation method
     const masterKey = deriveMasterKeyFromMnemonic(this.mnemonic, '');
-    const accountKey = masterKey.deriveChild(this.state.currentAccountIndex);
+    const currentAccount = this.getCurrentAccount();
+    const accountKey =
+      currentAccount?.derivation === 'master'
+        ? masterKey // Use master key directly for master-derived accounts
+        : masterKey.deriveChild(this.state.currentAccountIndex); // Use child derivation for slip10 accounts
 
     if (!accountKey.private_key) {
+      if (currentAccount?.derivation !== 'master') {
+        accountKey.free();
+      }
       masterKey.free();
-      accountKey.free();
       throw new Error('Cannot sign: no private key available');
     }
 
@@ -589,7 +621,9 @@ export class Vault {
     const signatureJson = signDigest(accountKey.private_key, digest);
 
     // Clean up WASM memory
-    accountKey.free();
+    if (currentAccount?.derivation !== 'master') {
+      accountKey.free();
+    }
     masterKey.free();
 
     // Return the signature JSON
@@ -616,23 +650,25 @@ export class Vault {
     }
 
     // Initialize WASM modules
-    // In service worker context, we need to provide the explicit URLs
-    // Both init functions are idempotent - they return immediately if already initialized
     const cryptoWasmUrl = chrome.runtime.getURL('lib/nbx-crypto/nbx_crypto_bg.wasm');
     const wasmTxUrl = chrome.runtime.getURL('lib/nbx-wasm/nbx_wasm_bg.wasm');
-
     await Promise.all([
       initCryptoWasm({ module_or_path: cryptoWasmUrl }),
       initWasmTx({ module_or_path: wasmTxUrl }),
     ]);
 
-    // Derive the account's private and public keys
+    // Derive the account's private and public keys based on derivation method
     const masterKey = deriveMasterKeyFromMnemonic(this.mnemonic, '');
-    const accountKey = masterKey.deriveChild(this.state.currentAccountIndex);
+    const accountKey =
+      currentAccount.derivation === 'master'
+        ? masterKey // Use master key directly for master-derived accounts
+        : masterKey.deriveChild(this.state.currentAccountIndex); // Use child derivation for slip10 accounts
 
     if (!accountKey.private_key || !accountKey.public_key) {
+      if (currentAccount.derivation !== 'master') {
+        accountKey.free();
+      }
       masterKey.free();
-      accountKey.free();
       throw new Error('Cannot sign: keys unavailable');
     }
 
@@ -674,7 +710,8 @@ export class Vault {
       console.log('[Vault] Selected UTXO with', selectedNote.assets, 'nicks');
 
       // Convert note to transaction builder format
-      const txBuilderNote = await convertNoteForTxBuilder(selectedNote);
+      // Pass owner's PKH to compute correct note_data_hash for input note
+      const txBuilderNote = await convertNoteForTxBuilder(selectedNote, currentAccount.address);
 
       // Build and sign the transaction
       const constructedTx = await buildPayment(
@@ -689,8 +726,10 @@ export class Vault {
       // Return constructed transaction (for caller to broadcast)
       return constructedTx.txId;
     } finally {
-      // Clean up WASM memory
-      accountKey.free();
+      // Clean up WASM memory (don't double-free master key)
+      if (currentAccount.derivation !== 'master') {
+        accountKey.free();
+      }
       masterKey.free();
     }
   }
@@ -756,19 +795,23 @@ export class Vault {
       // Initialize WASM modules
       const cryptoWasmUrl = chrome.runtime.getURL('lib/nbx-crypto/nbx_crypto_bg.wasm');
       const wasmTxUrl = chrome.runtime.getURL('lib/nbx-wasm/nbx_wasm_bg.wasm');
-
       await Promise.all([
         initCryptoWasm({ module_or_path: cryptoWasmUrl }),
         initWasmTx({ module_or_path: wasmTxUrl }),
       ]);
 
-      // Derive the account's private and public keys
+      // Derive the account's private and public keys based on derivation method
       const masterKey = deriveMasterKeyFromMnemonic(this.mnemonic, '');
-      const accountKey = masterKey.deriveChild(this.state.currentAccountIndex);
+      const accountKey =
+        currentAccount.derivation === 'master'
+          ? masterKey // Use master key directly for master-derived accounts
+          : masterKey.deriveChild(this.state.currentAccountIndex); // Use child derivation for slip10 accounts
 
       if (!accountKey.private_key || !accountKey.public_key) {
+        if (currentAccount.derivation !== 'master') {
+          accountKey.free();
+        }
         masterKey.free();
-        accountKey.free();
         return { error: 'Keys unavailable' };
       }
 
@@ -814,7 +857,8 @@ export class Vault {
         });
 
         // Convert note to transaction builder format
-        const txBuilderNote = await convertNoteForTxBuilder(selectedNote);
+        // Pass owner's PKH to compute correct note_data_hash for input note
+        const txBuilderNote = await convertNoteForTxBuilder(selectedNote, currentAccount.address);
         console.log('[Vault] Converted note for tx builder:', {
           originPage: txBuilderNote.originPage,
           nameFirst: txBuilderNote.nameFirst.slice(0, 20) + '...',
@@ -914,7 +958,9 @@ export class Vault {
         };
       } finally {
         // Clean up WASM memory
-        accountKey.free();
+        if (currentAccount.derivation !== 'master') {
+          accountKey.free();
+        }
         masterKey.free();
       }
     } catch (error) {

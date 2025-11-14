@@ -8,7 +8,7 @@ import type { Note } from './types';
 import { base58 } from '@scure/base';
 
 // RPC endpoint configuration
-// Use local grpcwebproxy which translates gRPC-web → gRPC for rpc.nockchain.net
+// NOTE: Using local grpcwebproxy (gRPC-web → gRPC for rpc.nockchain.net)
 const DEFAULT_ENDPOINT = 'http://localhost:8080';
 
 // Track WASM initialization
@@ -76,7 +76,9 @@ export class NockchainBrowserRPCClient {
    * @param address - Base58-encoded V1 address
    */
   async getBalance(address: string): Promise<Note[]> {
-    console.log(`[RPC Browser] Fetching balance for ${address.slice(0, 20)}... from ${this.endpoint}`);
+    console.log(
+      `[RPC Browser] Fetching balance for ${address.slice(0, 20)}... from ${this.endpoint}`
+    );
 
     try {
       const client = await this.ensureClient();
@@ -90,7 +92,9 @@ export class NockchainBrowserRPCClient {
       return this.convertBalanceToNotes(response);
     } catch (error) {
       console.error('[RPC Browser] Error fetching balance:', error);
-      throw new Error(`Failed to fetch balance: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to fetch balance: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -100,12 +104,17 @@ export class NockchainBrowserRPCClient {
    * @returns Array of notes with matching first-name
    */
   async getNotesByFirstName(firstNameBase58: string): Promise<Note[]> {
-    console.log(`[RPC Browser] Fetching notes by first-name ${firstNameBase58.slice(0, 20)}... from ${this.endpoint}`);
+    console.log(
+      `[RPC Browser] Fetching notes by first-name ${firstNameBase58.slice(0, 20)}... from ${this.endpoint}`
+    );
 
     try {
       const client = await this.ensureClient();
 
-      console.log('[RPC Browser] Sending gRPC request for first-name:', firstNameBase58.slice(0, 20) + '...');
+      console.log(
+        '[RPC Browser] Sending gRPC request for first-name:',
+        firstNameBase58.slice(0, 20) + '...'
+      );
       const response = await client.get_balance_by_first_name(firstNameBase58);
 
       const noteCount = response.notes?.length || 0;
@@ -124,12 +133,17 @@ export class NockchainBrowserRPCClient {
       console.log('[RPC Browser] ===== END RAW RESPONSE =====');
 
       const notes = this.convertBalanceToNotes(response);
-      console.log(`[RPC Browser] Converted ${notes.length} notes, total assets:`, notes.reduce((sum, n) => sum + n.assets, 0));
+      console.log(
+        `[RPC Browser] Converted ${notes.length} notes, total assets:`,
+        notes.reduce((sum, n) => sum + n.assets, 0)
+      );
 
       return notes;
     } catch (error) {
       console.error('[RPC Browser] Error fetching notes by first-name:', error);
-      throw new Error(`Failed to fetch notes by first-name: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to fetch notes by first-name: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -170,7 +184,9 @@ export class NockchainBrowserRPCClient {
       return response;
     } catch (error) {
       console.error('[RPC Browser] Error sending transaction:', error);
-      throw new Error(`Failed to send transaction: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to send transaction: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -233,8 +249,14 @@ export class NockchainBrowserRPCClient {
     // DEBUG: Log what we're getting from RPC
     console.log('[RPC Browser] convertProtoNote - balanceEntry keys:', Object.keys(balanceEntry));
     console.log('[RPC Browser] convertProtoNote - noteDataHash:', noteDataHash);
-    console.log('[RPC Browser] convertProtoNote - balanceEntry.note_data_hash:', balanceEntry.note_data_hash);
-    console.log('[RPC Browser] convertProtoNote - protoNote.note_data_hash:', protoNote.note_data_hash);
+    console.log(
+      '[RPC Browser] convertProtoNote - balanceEntry.note_data_hash:',
+      balanceEntry.note_data_hash
+    );
+    console.log(
+      '[RPC Browser] convertProtoNote - protoNote.note_data_hash:',
+      protoNote.note_data_hash
+    );
     console.log('[RPC Browser] convertProtoNote - protoNote keys:', Object.keys(protoNote));
     console.log('[RPC Browser] convertProtoNote - noteVersion:', noteVersion);
 
@@ -243,13 +265,25 @@ export class NockchainBrowserRPCClient {
       console.log('[RPC Browser] convertProtoNote - noteData keys:', Object.keys(noteData));
       console.log('[RPC Browser] convertProtoNote - noteData.note_data:', noteData.note_data);
       if (noteData.note_data) {
-        console.log('[RPC Browser] convertProtoNote - noteData.note_data.entries:', noteData.note_data.entries);
-        console.log('[RPC Browser] convertProtoNote - noteData.note_data.hash:', noteData.note_data.hash);
-        console.log('[RPC Browser] convertProtoNote - noteData.note_data keys:', Object.keys(noteData.note_data));
+        console.log(
+          '[RPC Browser] convertProtoNote - noteData.note_data.entries:',
+          noteData.note_data.entries
+        );
+        console.log(
+          '[RPC Browser] convertProtoNote - noteData.note_data.hash:',
+          noteData.note_data.hash
+        );
+        console.log(
+          '[RPC Browser] convertProtoNote - noteData.note_data keys:',
+          Object.keys(noteData.note_data)
+        );
 
         // DETAILED: Inspect entries array structure
         if (noteData.note_data.entries && Array.isArray(noteData.note_data.entries)) {
-          console.log('[RPC Browser] noteData.note_data.entries.length:', noteData.note_data.entries.length);
+          console.log(
+            '[RPC Browser] noteData.note_data.entries.length:',
+            noteData.note_data.entries.length
+          );
           noteData.note_data.entries.forEach((entry: any, idx: number) => {
             console.log(`[RPC Browser] Entry ${idx}:`, {
               key: entry.key,
@@ -295,14 +329,20 @@ export class NockchainBrowserRPCClient {
     const safeToNumber = (value: any): number => {
       if (typeof value === 'bigint') {
         if (value > BigInt(Number.MAX_SAFE_INTEGER)) {
-          console.warn('[RPC Browser] Value exceeds MAX_SAFE_INTEGER, precision may be lost:', value);
+          console.warn(
+            '[RPC Browser] Value exceeds MAX_SAFE_INTEGER, precision may be lost:',
+            value
+          );
         }
         return Number(value);
       }
       if (typeof value === 'string') {
         const bigIntValue = BigInt(value);
         if (bigIntValue > BigInt(Number.MAX_SAFE_INTEGER)) {
-          console.warn('[RPC Browser] Value exceeds MAX_SAFE_INTEGER, precision may be lost:', value);
+          console.warn(
+            '[RPC Browser] Value exceeds MAX_SAFE_INTEGER, precision may be lost:',
+            value
+          );
         }
         return Number(bigIntValue);
       }
@@ -313,7 +353,9 @@ export class NockchainBrowserRPCClient {
     const assetsValue = noteData.assets?.value || noteData.assets || 0;
 
     // Extract version - WASM format has { value: "1" }, old format is direct
-    const versionValue = noteData.version?.value ? parseInt(noteData.version.value) : (noteData.version || 1);
+    const versionValue = noteData.version?.value
+      ? parseInt(noteData.version.value)
+      : noteData.version || 1;
 
     // Extract originPage - WASM format has { value: "123" }, old format is direct
     const originPageValue = noteData.origin_page?.value || noteData.originPage || 0;
@@ -334,6 +376,7 @@ export class NockchainBrowserRPCClient {
         sourceHash: noteData.source?.hash?.bytes || new Uint8Array(40),
         sourceIsCoinbase: noteData.source?.isCoinbase || false,
         assets: safeToNumber(assetsValue),
+        protoNote: balanceEntry.note, // Store raw protobuf for WasmNote.fromProtobuf()
       };
     } else {
       return {
@@ -351,6 +394,7 @@ export class NockchainBrowserRPCClient {
         sourceHash: new Uint8Array(40),
         sourceIsCoinbase: false,
         assets: safeToNumber(assetsValue),
+        protoNote: balanceEntry.note, // Store raw protobuf for WasmNote.fromProtobuf()
       };
     }
   }

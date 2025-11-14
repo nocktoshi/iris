@@ -7,9 +7,7 @@ import initCryptoWasm from '../lib/nbx-crypto/nbx_crypto.js';
 import initTxWasm, {
   WasmTxBuilder,
   WasmNote,
-  WasmName,
   WasmDigest,
-  WasmVersion,
   WasmPkh,
   WasmSpendCondition,
   WasmRawTx,
@@ -20,6 +18,7 @@ import initTxWasm, {
 import { publicKeyToPKHDigest } from './address-encoding.js';
 import { deriveFirstNameFromLockHash } from './first-name-derivation.js';
 import { base58 } from '@scure/base';
+import { NOCK_TO_NICKS } from './constants.js';
 
 let cryptoWasmInitialized = false;
 let txWasmInitialized = false;
@@ -60,6 +59,7 @@ export async function discoverSpendConditionForNote(
   senderPKH: string,
   note: { nameFirst: string; originPage: number }
 ): Promise<WasmSpendCondition> {
+  await ensureCryptoWasmInit();
   await ensureTxWasmInit();
 
   const candidates: Array<{ name: string; condition: WasmSpendCondition }> = [];
@@ -147,6 +147,7 @@ export interface Note {
   nameLast: string; // base58 digest string
   noteDataHash: string; // base58 digest string
   assets: number;
+  protoNote?: any; // Raw protobuf note for WasmNote.fromProtobuf()
 }
 
 /**
@@ -211,49 +212,42 @@ export async function buildTransaction(params: TransactionParams): Promise<Const
     );
   }
 
-  // Convert notes to also format (V1 only)
+  // Convert notes using WasmNote.fromProtobuf() to preserve correct NoteData
   const wasmNotes = notes.map(note => {
-    console.log('[TxBuilder] Creating WasmNote with:', {
+    if (!note.protoNote) {
+      throw new Error(
+        'Note missing protoNote - cannot build transaction. RPC must provide full note data.'
+      );
+    }
+
+    console.log('[TxBuilder] Creating WasmNote from protobuf with:', {
       version: 'V1',
       originPage: note.originPage,
-      nameFirst: note.nameFirst.slice(0, 20) + '...',
-      nameLast: note.nameLast.slice(0, 20) + '...',
-      noteDataHash: note.noteDataHash.slice(0, 20) + '...',
       assets: note.assets,
+      hasProtoNote: !!note.protoNote,
     });
 
-    return new WasmNote(
-      WasmVersion.V1(),
-      BigInt(note.originPage),
-      new WasmName(note.nameFirst, note.nameLast),
-      new WasmDigest(note.noteDataHash),
-      BigInt(note.assets)
-    );
+    // Use fromProtobuf to correctly deserialize NoteData entries
+    // This ensures parent_hash is computed correctly
+    return WasmNote.fromProtobuf(note.protoNote);
   });
-
-  // The builder expects lock-roots for outputs, NOT raw PKH digests
-  // We must derive the lock-root from each PKH's spend condition
-  const recipientLockRoot = WasmSpendCondition.newPkh(WasmPkh.single(recipientPKH)).hash().value;
-  const refundLockRoot = WasmSpendCondition.newPkh(WasmPkh.single(refundPKH)).hash().value;
 
   console.log('[TxBuilder] Creating transaction with:', {
     inputCount: wasmNotes.length,
     recipientPKH: recipientPKH.slice(0, 20) + '...',
-    recipientLockRoot: recipientLockRoot.slice(0, 20) + '...',
     amount,
     fee,
     refundPKH: refundPKH.slice(0, 20) + '...',
-    refundLockRoot: refundLockRoot.slice(0, 20) + '...',
   });
 
-  // Create transaction builder with lock-roots (not raw PKHs!)
+  // Create transaction builder with PKH digests (builder computes lock-roots)
   const builder = WasmTxBuilder.newSimple(
     wasmNotes,
     spendCondition,
-    new WasmDigest(recipientLockRoot), //  Lock-root, not PKH
+    new WasmDigest(recipientPKH),
     BigInt(amount), // gift
     BigInt(fee),
-    new WasmDigest(refundLockRoot) //  Lock-root, not PKH
+    new WasmDigest(refundPKH)
   );
 
   console.log('[TxBuilder] Signing transaction...');
@@ -403,6 +397,7 @@ export async function createSinglePKHSpendCondition(
 export async function calculateNoteDataHash(
   spendCondition: WasmSpendCondition
 ): Promise<Uint8Array> {
+  await ensureCryptoWasmInit();
   await ensureTxWasmInit();
 
   const hashDigest = spendCondition.hash();

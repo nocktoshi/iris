@@ -708,14 +708,14 @@ export function HomeScreen() {
                     {group.items.map((t, i) => (
                       <button
                         key={i}
-                        className="w-full flex items-center gap-3 py-3 rounded-lg px-2 -mx-2"
+                        className="w-full flex items-start gap-3 py-3 rounded-lg px-2 -mx-2"
                         onClick={() => {
                           setSelectedTransaction(t.originalTx);
                           navigate('tx-details');
                         }}
                       >
                         <div
-                          className="h-10 w-10 rounded-full grid place-items-center"
+                          className="h-10 w-10 shrink-0 rounded-full grid place-items-center"
                           style={{ backgroundColor: 'var(--color-tx-icon)' }}
                         >
                           {t.type === 'received' ? (

@@ -197,4 +197,6 @@ export interface Note {
   sourceIsCoinbase: boolean;
   /** Amount in nicks (1 NOCK = 65,536 nicks) */
   assets: number;
+  /** Raw protobuf note object from RPC (for WasmNote.fromProtobuf) */
+  protoNote?: any;
 }
