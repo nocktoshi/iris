@@ -1,170 +1,127 @@
-/**
- * Transaction Approval Screen - Approve or reject transaction requests from dApps
- */
-
 import { useStore } from "../../store";
-import { ScreenContainer } from "../../components/ScreenContainer";
 import { ChevronLeftIcon } from "../../components/icons/ChevronLeftIcon";
-import { Alert } from "../../components/Alert";
+import { ChevronRightIcon } from "../../components/icons/ChevronRightIcon";
+import { AccountIcon } from "../../components/AccountIcon";
 import { truncateAddress } from "../../utils/format";
 import { send } from "../../utils/messaging";
-import { INTERNAL_METHODS, NOCK_TO_NICKS } from "../../../shared/constants";
+import { INTERNAL_METHODS, NOCK_TO_NICKS, DEFAULT_TRANSACTION_FEE } from "../../../shared/constants";
+import { formatNock, formatNick } from "../../../shared/currency";
 import { useAutoRejectOnClose } from "../../hooks/useAutoRejectOnClose";
 
 export function TransactionApprovalScreen() {
-  const {
-    navigate,
-    pendingTransactionRequest,
-    setPendingTransactionRequest,
-    wallet,
-  } = useStore();
+  const { navigate, pendingTransactionRequest, setPendingTransactionRequest, wallet } = useStore();
 
   if (!pendingTransactionRequest) {
-    // No pending request, redirect to home
     navigate("home");
     return null;
   }
 
-  const { id, origin, to, amount, fee } = pendingTransactionRequest;
-  const currentAccount = wallet.currentAccount;
+  const { id, origin, to, amount } = pendingTransactionRequest;
+  const fee = DEFAULT_TRANSACTION_FEE;
+  const total = amount + fee;
+  const displayOrigin = origin.includes('://') ? new URL(origin).hostname : origin;
 
-  // Convert nicks to NOCK for display
-  const amountNock = (amount / NOCK_TO_NICKS).toFixed(4);
-  const feeNock = (fee / NOCK_TO_NICKS).toFixed(4);
-  const totalNock = ((amount + fee) / NOCK_TO_NICKS).toFixed(4);
-
-  // Auto-reject when window closes without user action
   useAutoRejectOnClose(id, INTERNAL_METHODS.REJECT_TRANSACTION);
 
   async function handleReject() {
-    try {
-      await send(INTERNAL_METHODS.REJECT_TRANSACTION, [id]);
-      setPendingTransactionRequest(null);
-      window.close(); // Close approval popup
-    } catch (error) {
-      console.error("Failed to reject transaction:", error);
-    }
+    await send(INTERNAL_METHODS.REJECT_TRANSACTION, [id]);
+    setPendingTransactionRequest(null);
+    window.close();
   }
 
   async function handleApprove() {
-    try {
-      await send(INTERNAL_METHODS.APPROVE_TRANSACTION, [id]);
-      setPendingTransactionRequest(null);
-      window.close(); // Close approval popup
-    } catch (error) {
-      console.error("Failed to approve transaction:", error);
-    }
+    await send(INTERNAL_METHODS.APPROVE_TRANSACTION, [id]);
+    setPendingTransactionRequest(null);
+    window.close();
   }
 
+  const bg = 'var(--color-bg)';
+  const surface = 'var(--color-surface-800)';
+  const textPrimary = 'var(--color-text-primary)';
+  const textMuted = 'var(--color-text-muted)';
+  const divider = 'var(--color-divider)';
+
   return (
-    <ScreenContainer className="flex flex-col">
+    <div className="w-[357px] h-screen flex flex-col" style={{ backgroundColor: bg }}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <button
-          onClick={handleReject}
-          className="transition-colors"
-          style={{ color: 'var(--color-text-primary)' }}
-        >
+      <div className="flex items-center gap-3 px-4 py-2.5 shrink-0">
+        <button onClick={handleReject} style={{ color: textPrimary }}>
           <ChevronLeftIcon />
         </button>
-        <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+        <h2 className="text-xl font-semibold" style={{ color: textPrimary }}>
           Approve Transaction
         </h2>
       </div>
 
-      {/* Site Origin */}
-      <div className="mb-6">
-        <label className="text-sm block mb-2" style={{ color: 'var(--color-text-muted)' }}>
-          Requesting Site
-        </label>
-        <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-surface-800)' }}>
-          <p className="text-sm font-medium break-all" style={{ color: 'var(--color-text-primary)' }}>
-            {origin}
-          </p>
+      {/* Content */}
+      <div className="px-4 pb-2">
+        {/* Site Badge */}
+        <div className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg mb-3" style={{ backgroundColor: surface }}>
+          <span className="text-xs" style={{ color: textMuted }}>From</span>
+          <span className="text-sm font-semibold truncate max-w-[200px]" style={{ color: textPrimary }}>
+            {displayOrigin}
+          </span>
         </div>
-      </div>
 
-      {/* Transaction Details */}
-      <div className="mb-6 space-y-4">
-        <div>
-          <label className="text-sm block mb-2" style={{ color: 'var(--color-text-muted)' }}>
-            Recipient
-          </label>
-          <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-surface-800)' }}>
-            <p className="text-sm font-mono break-all" style={{ color: 'var(--color-text-primary)' }}>
-              {to}
-            </p>
+        {/* Amount */}
+        <div className="text-center mb-4">
+          <div className="font-[Lora] text-[32px] font-semibold leading-none">
+            {formatNock(amount / NOCK_TO_NICKS)} <span style={{ color: textMuted }}>NOCK</span>
+          </div>
+          <div className="text-[10px] mt-1" style={{ color: textMuted }}>
+            {formatNick(amount)} nicks
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm block mb-2" style={{ color: 'var(--color-text-muted)' }}>
-              Amount
-            </label>
-            <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-surface-800)' }}>
-              <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                {amountNock} NOCK
-              </p>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                {amount.toLocaleString()} nicks
-              </p>
+        <div className="space-y-2">
+          {/* From/To */}
+          <div className="rounded-lg p-3 flex items-center gap-2" style={{ backgroundColor: surface }}>
+            <div className="flex-1">
+              <div className="text-xs mb-1" style={{ color: textMuted }}>From</div>
+              <div className="flex items-center gap-1.5">
+                <AccountIcon 
+                  styleId={wallet.currentAccount?.iconStyleId} 
+                  color={wallet.currentAccount?.iconColor} 
+                  className="w-4 h-4" 
+                />
+                <span className="text-sm">{truncateAddress(wallet.currentAccount?.address)}</span>
+              </div>
+            </div>
+            <ChevronRightIcon className="w-4 h-4 shrink-0" />
+            <div className="flex-1">
+              <div className="text-xs mb-1" style={{ color: textMuted }}>To</div>
+              <span className="text-sm">{truncateAddress(to)}</span>
             </div>
           </div>
 
-          <div>
-            <label className="text-sm block mb-2" style={{ color: 'var(--color-text-muted)' }}>
-              Fee
-            </label>
-            <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-surface-800)' }}>
-              <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                {feeNock} NOCK
-              </p>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                {fee.toLocaleString()} nicks
-              </p>
+          {/* Fee & Total */}
+          <div className="rounded-lg p-3 space-y-2" style={{ backgroundColor: surface }}>
+            <div className="flex justify-between text-sm">
+              <span>Network fee</span>
+              <div className="text-right">
+                <div>{formatNock(fee / NOCK_TO_NICKS)} NOCK</div>
+                <div className="text-[10px]" style={{ color: textMuted }}>{formatNick(fee)} nicks</div>
+              </div>
+            </div>
+            <div className="h-px" style={{ backgroundColor: 'var(--color-surface-700)' }} />
+            <div className="flex justify-between text-sm font-semibold">
+              <span>Total</span>
+              <div className="text-right">
+                <div>{formatNock(total / NOCK_TO_NICKS)} NOCK</div>
+                <div className="text-[10px] font-normal" style={{ color: textMuted }}>{formatNick(total)} nicks</div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div>
-          <label className="text-sm block mb-2" style={{ color: 'var(--color-text-muted)' }}>
-            Total (Amount + Fee)
-          </label>
-          <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-surface-800)' }}>
-            <p className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-              {totalNock} NOCK
-            </p>
-            <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-              {(amount + fee).toLocaleString()} nicks
-            </p>
+          {/* Balance After */}
+          <div className="text-center text-xs py-2" style={{ color: textMuted }}>
+            Balance after: {formatNock(wallet.balance - total / NOCK_TO_NICKS)} NOCK
           </div>
         </div>
       </div>
 
-      {/* Sending Account */}
-      <div className="mb-6">
-        <label className="text-sm block mb-2" style={{ color: 'var(--color-text-muted)' }}>
-          From Account
-        </label>
-        <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-surface-800)' }}>
-          <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-            {currentAccount?.name || "Unknown"}
-          </p>
-          <p className="text-xs font-mono mt-1" style={{ color: 'var(--color-text-muted)' }}>
-            {truncateAddress(currentAccount?.address)}
-          </p>
-        </div>
-      </div>
-
-      {/* Warning */}
-      {/* <Alert type="warning" className="mb-6">
-        Only approve transactions you understand from sites you trust. This transaction cannot be
-        reversed once confirmed.
-      </Alert> */}
-
-      {/* Action Buttons */}
-      <div className="flex gap-3 mt-auto">
+      {/* Footer Buttons */}
+      <div className="mt-auto px-4 py-2.5 shrink-0 flex gap-3" style={{ borderTop: `1px solid ${divider}` }}>
         <button onClick={handleReject} className="btn-secondary flex-1">
           Reject
         </button>
@@ -172,6 +129,6 @@ export function TransactionApprovalScreen() {
           Approve
         </button>
       </div>
-    </ScreenContainer>
+    </div>
   );
 }
