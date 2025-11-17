@@ -64,7 +64,6 @@ export function validateMnemonic(mnemonic: string): boolean {
 export async function deriveAddressFromMaster(
   mnemonic: string
 ): Promise<string> {
-  console.log('[deriveAddressFromMaster] Called with mnemonic:', mnemonic.split(' ').slice(0, 3).join(' ') + '...');
   await ensureWasmInit();
 
   // Derive master key from mnemonic
