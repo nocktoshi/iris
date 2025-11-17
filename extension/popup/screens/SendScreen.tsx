@@ -92,6 +92,11 @@ export function SendScreen() {
     }
   }
 
+  function handleFeeInputBlur() {
+    // Auto-save fee when input loses focus
+    handleSaveFee();
+  }
+
   function handleCancel() {
     navigate('home');
   }
@@ -481,6 +486,7 @@ export function SendScreen() {
                   value={editedFee}
                   onChange={handleFeeInputChange}
                   onKeyDown={handleFeeInputKeyDown}
+                  onBlur={handleFeeInputBlur}
                   autoFocus
                   className="w-8 h-3 bg-transparent outline-none text-[14px] leading-[18px] font-medium text-right"
                   style={{ color: 'var(--color-text-primary)' }}
