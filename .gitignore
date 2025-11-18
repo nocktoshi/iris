@@ -26,6 +26,4 @@ test-*.js
 *~
 
 # WASM binary files
-extension/lib/nbx-crypto/*.wasm
 extension/lib/nbx-wasm/*.wasm
-extension/lib/nbx-nockchain-types/*.wasm
