@@ -3,8 +3,7 @@
  * High-level API for constructing Nockchain transactions
  */
 
-import initCryptoWasm from '../lib/nbx-crypto/nbx_crypto.js';
-import initTxWasm, {
+import {
   WasmTxBuilder,
   WasmNote,
   WasmDigest,
@@ -19,31 +18,7 @@ import { publicKeyToPKHDigest } from './address-encoding.js';
 import { deriveFirstNameFromLockHash } from './first-name-derivation.js';
 import { base58 } from '@scure/base';
 import { NOCK_TO_NICKS } from './constants.js';
-
-let cryptoWasmInitialized = false;
-let txWasmInitialized = false;
-
-/**
- * Ensure crypto WASM is initialized
- */
-async function ensureCryptoWasmInit(): Promise<void> {
-  if (!cryptoWasmInitialized) {
-    const cryptoWasmUrl = chrome.runtime.getURL('lib/nbx-crypto/nbx_crypto_bg.wasm');
-    await initCryptoWasm({ module_or_path: cryptoWasmUrl });
-    cryptoWasmInitialized = true;
-  }
-}
-
-/**
- * Ensure transaction WASM is initialized
- */
-async function ensureTxWasmInit(): Promise<void> {
-  if (!txWasmInitialized) {
-    const txWasmUrl = chrome.runtime.getURL('lib/nbx-wasm/nbx_wasm_bg.wasm');
-    await initTxWasm({ module_or_path: txWasmUrl });
-    txWasmInitialized = true;
-  }
-}
+import { ensureWasmInitialized } from './wasm-utils.js';
 
 /**
  * Discover the correct spend condition for a note by matching lock-root to name.first
@@ -59,8 +34,7 @@ export async function discoverSpendConditionForNote(
   senderPKH: string,
   note: { nameFirst: string; originPage: number }
 ): Promise<WasmSpendCondition> {
-  await ensureCryptoWasmInit();
-  await ensureTxWasmInit();
+  await ensureWasmInitialized();
 
   const candidates: Array<{ name: string; condition: WasmSpendCondition }> = [];
 
@@ -190,8 +164,7 @@ export interface ConstructedTransaction {
  */
 export async function buildTransaction(params: TransactionParams): Promise<ConstructedTransaction> {
   // Initialize both WASM modules
-  await ensureCryptoWasmInit();
-  await ensureTxWasmInit();
+  await ensureWasmInitialized();
 
   const { notes, spendCondition, recipientPKH, amount, fee, refundPKH, privateKey } = params;
 
@@ -329,8 +302,7 @@ export async function buildPayment(
   privateKey: Uint8Array
 ): Promise<ConstructedTransaction> {
   // Initialize WASM
-  await ensureCryptoWasmInit();
-  await ensureTxWasmInit();
+  await ensureWasmInitialized();
 
   const totalNeeded = amount + fee;
 
@@ -381,8 +353,7 @@ export async function buildPayment(
 export async function createSinglePKHSpendCondition(
   publicKey: Uint8Array
 ): Promise<WasmSpendCondition> {
-  await ensureCryptoWasmInit();
-  await ensureTxWasmInit();
+  await ensureWasmInitialized();
 
   const pkhDigest = publicKeyToPKHDigest(publicKey);
   const pkh = WasmPkh.single(pkhDigest);
@@ -399,8 +370,7 @@ export async function createSinglePKHSpendCondition(
 export async function calculateNoteDataHash(
   spendCondition: WasmSpendCondition
 ): Promise<Uint8Array> {
-  await ensureCryptoWasmInit();
-  await ensureTxWasmInit();
+  await ensureWasmInitialized();
 
   const hashDigest = spendCondition.hash();
   // The digest value is already a base58 string, decode it to bytes

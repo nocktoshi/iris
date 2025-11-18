@@ -72,10 +72,7 @@ export function SendSubmittedScreen() {
       </header>
 
       {/* Content */}
-      <div
-        className="flex flex-col h-[536px]"
-        style={{ backgroundColor: 'var(--color-bg)' }}
-      >
+      <div className="flex flex-col h-[536px]" style={{ backgroundColor: 'var(--color-bg)' }}>
         <div className="flex flex-col gap-8 px-4 py-2 flex-1">
           {/* Success Section */}
           <div className="flex flex-col items-center gap-3 w-full">
@@ -164,7 +161,7 @@ export function SendSubmittedScreen() {
                 className="text-sm font-medium leading-[18px] tracking-[0.14px]"
                 style={{ color: 'var(--color-text-primary)' }}
               >
-                💾 Download Transaction (Dev)
+                Download Transaction (Dev)
               </span>
             </button>
           </div>

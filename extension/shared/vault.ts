@@ -12,13 +12,14 @@ import {
 import { ERROR_CODES, STORAGE_KEYS, ACCOUNT_COLORS, PRESET_WALLET_STYLES } from './constants';
 import { Account } from './types';
 import { buildPayment, type Note as TxBuilderNote } from './transaction-builder';
-import initCryptoWasm, { signDigest, tip5Hash } from '../lib/nbx-crypto/nbx_crypto.js';
-import initWasmTx, { deriveMasterKeyFromMnemonic } from '../lib/nbx-wasm/nbx_wasm.js';
+import { signDigest, tip5Hash } from '../lib/nbx-crypto/nbx_crypto.js';
+import { deriveMasterKeyFromMnemonic } from '../lib/nbx-wasm/nbx_wasm.js';
 import { queryV1Balance } from './balance-query';
 import { createBrowserClient } from './rpc-client-browser';
 import type { Note as BalanceNote } from './types';
 import { base58 } from '@scure/base';
 import { USE_MOCK_TRANSACTIONS, MOCK_TRANSACTIONS } from './mocks/transactions';
+import { initWasmModules } from './wasm-utils';
 
 /**
  * Convert a balance query note to transaction builder note format
@@ -709,12 +710,7 @@ export class Vault {
     }
 
     // Initialize WASM modules
-    const cryptoWasmUrl = chrome.runtime.getURL('lib/nbx-crypto/nbx_crypto_bg.wasm');
-    const wasmTxUrl = chrome.runtime.getURL('lib/nbx-wasm/nbx_wasm_bg.wasm');
-    await Promise.all([
-      initCryptoWasm({ module_or_path: cryptoWasmUrl }),
-      initWasmTx({ module_or_path: wasmTxUrl }),
-    ]);
+    await initWasmModules();
 
     const msg = (Array.isArray(params) ? params[0] : params) ?? '';
     const msgBytes = new TextEncoder().encode(String(msg));
@@ -773,12 +769,7 @@ export class Vault {
     }
 
     // Initialize WASM modules
-    const cryptoWasmUrl = chrome.runtime.getURL('lib/nbx-crypto/nbx_crypto_bg.wasm');
-    const wasmTxUrl = chrome.runtime.getURL('lib/nbx-wasm/nbx_wasm_bg.wasm');
-    await Promise.all([
-      initCryptoWasm({ module_or_path: cryptoWasmUrl }),
-      initWasmTx({ module_or_path: wasmTxUrl }),
-    ]);
+    await initWasmModules();
 
     // Derive the account's private and public keys based on derivation method
     const masterKey = deriveMasterKeyFromMnemonic(this.mnemonic, '');
@@ -860,21 +851,139 @@ export class Vault {
   }
 
   /**
+   * Build and sign a transaction without broadcasting it
+   * This allows the UI to pre-build transactions for review before broadcasting
+   *
+   * @param to - Recipient PKH address (base58-encoded digest string)
+   * @param amount - Amount in nicks
+   * @param fee - Transaction fee in nicks
+   * @returns Transaction ID and protobuf transaction object (not broadcasted)
+   */
+  async buildAndSignTransaction(
+    to: string,
+    amount: number,
+    fee: number
+  ): Promise<{ txId: string; protobufTx: any } | { error: string }> {
+    if (this.state.locked || !this.mnemonic) {
+      return { error: ERROR_CODES.LOCKED };
+    }
+
+    const currentAccount = this.getCurrentAccount();
+    if (!currentAccount) {
+      return { error: ERROR_CODES.NO_ACCOUNT };
+    }
+
+    try {
+      // Initialize WASM modules
+      await initWasmModules();
+
+      // Derive the account's private and public keys based on derivation method
+      const masterKey = deriveMasterKeyFromMnemonic(this.mnemonic, '');
+      const childIndex = currentAccount?.index ?? this.state.currentAccountIndex;
+      const accountKey =
+        currentAccount.derivation === 'master'
+          ? masterKey
+          : masterKey.deriveChild(childIndex);
+
+      if (!accountKey.private_key || !accountKey.public_key) {
+        if (currentAccount.derivation !== 'master') {
+          accountKey.free();
+        }
+        masterKey.free();
+        return { error: 'Keys unavailable' };
+      }
+
+      try {
+        // Create RPC client
+        const rpcClient = createBrowserClient();
+
+        console.log('[Vault] Fetching UTXOs for transaction...');
+        const balanceResult = await queryV1Balance(currentAccount.address, rpcClient);
+
+        if (balanceResult.utxoCount === 0) {
+          return { error: 'No UTXOs available. Your wallet may have zero balance.' };
+        }
+
+        console.log(`[Vault] Found ${balanceResult.utxoCount} UTXOs`);
+
+        // Combine simple and coinbase notes
+        const notes = [...balanceResult.simpleNotes, ...balanceResult.coinbaseNotes];
+
+        // Calculate total amount needed (amount + fee)
+        const totalNeeded = amount + fee;
+
+        // UTXO selection: find a note with sufficient balance
+        const selectedNote = notes.find(note => note.assets >= totalNeeded);
+
+        if (!selectedNote) {
+          const totalBalance = notes.reduce((sum, note) => sum + note.assets, 0);
+          return {
+            error:
+              `Insufficient balance. Need ${totalNeeded} nicks (${amount} + ${fee} fee), ` +
+              `but wallet only has ${totalBalance} nicks across ${notes.length} UTXOs. ` +
+              `Multi-UTXO transactions not yet implemented.`,
+          };
+        }
+
+        console.log('[Vault] Selected UTXO with', selectedNote.assets, 'nicks');
+
+        // Convert note to transaction builder format
+        const txBuilderNote = await convertNoteForTxBuilder(selectedNote, currentAccount.address);
+
+        // Build and sign the transaction
+        console.log('[Vault] Building transaction with params:', {
+          recipientPKH: to.slice(0, 20) + '...',
+          amount,
+          fee,
+          senderPublicKey: base58.encode(accountKey.public_key).slice(0, 20) + '...',
+        });
+
+        const constructedTx = await buildPayment(
+          txBuilderNote,
+          to,
+          amount,
+          accountKey.public_key,
+          fee,
+          accountKey.private_key
+        );
+
+        console.log('[Vault] Transaction signed:', constructedTx.txId);
+
+        // Convert to protobuf format for gRPC
+        const protobufTx = constructedTx.rawTx.toProtobuf();
+
+        return {
+          txId: constructedTx.txId,
+          protobufTx,
+        };
+      } finally {
+        // Clean up WASM memory
+        if (currentAccount.derivation !== 'master') {
+          accountKey.free();
+        }
+        masterKey.free();
+      }
+    } catch (error) {
+      console.error('[Vault] Error building and signing transaction:', error);
+      return {
+        error: `Failed to build and sign transaction: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  /**
    * Broadcast a raw signed transaction to the network
    * This is a simpler method that doesn't require note conversion or WASM
    *
-   * @param rawTx - The raw signed transaction object (WasmRawTx or already serialized)
+   * @param protobufTx - The protobuf transaction object (not WASM, already converted)
    * @returns Transaction ID and broadcast status
    */
   async broadcastTransaction(
-    rawTx: any
+    protobufTx: any
   ): Promise<{ txId: string; broadcasted: boolean } | { error: string }> {
     try {
       const rpcClient = createBrowserClient();
       console.log('[Vault] Broadcasting pre-signed transaction...');
-
-      // If rawTx has toProtobuf method, convert it; otherwise use as-is
-      const protobufTx = typeof rawTx.toProtobuf === 'function' ? rawTx.toProtobuf() : rawTx;
 
       const txId = await rpcClient.sendTransaction(protobufTx);
 
@@ -918,12 +1027,7 @@ export class Vault {
 
     try {
       // Initialize WASM modules
-      const cryptoWasmUrl = chrome.runtime.getURL('lib/nbx-crypto/nbx_crypto_bg.wasm');
-      const wasmTxUrl = chrome.runtime.getURL('lib/nbx-wasm/nbx_wasm_bg.wasm');
-      await Promise.all([
-        initCryptoWasm({ module_or_path: cryptoWasmUrl }),
-        initWasmTx({ module_or_path: wasmTxUrl }),
-      ]);
+      await initWasmModules();
 
       // Derive the account's private and public keys based on derivation method
       const masterKey = deriveMasterKeyFromMnemonic(this.mnemonic, '');

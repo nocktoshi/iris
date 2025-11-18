@@ -884,20 +884,72 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         }
         return;
 
-      case INTERNAL_METHODS.BROADCAST_TRANSACTION:
-        // params: [rawTx] - raw signed transaction object
-        // Called from popup after building and signing the transaction
-        const [rawTx] = payload.params || [];
+      case INTERNAL_METHODS.BUILD_AND_SIGN_TRANSACTION:
+        // params: [to, amount, fee] - amount and fee in nicks
+        // Called from popup SendReview screen - builds and signs transaction without broadcasting
+        if (vault.isLocked()) {
+          sendResponse({ error: ERROR_CODES.LOCKED });
+          return;
+        }
 
-        if (!rawTx) {
-          sendResponse({ error: 'Missing raw transaction' });
+        const [buildTo, buildAmount, buildFee] = payload.params || [];
+        if (!isNockAddress(buildTo)) {
+          sendResponse({ error: ERROR_CODES.BAD_ADDRESS });
+          return;
+        }
+
+        if (typeof buildAmount !== 'number' || buildAmount <= 0) {
+          sendResponse({ error: 'Invalid amount' });
+          return;
+        }
+
+        if (typeof buildFee !== 'number' || buildFee < 0) {
+          sendResponse({ error: 'Invalid fee' });
+          return;
+        }
+
+        try {
+          console.log('[Background] Building and signing transaction:', {
+            to: buildTo.slice(0, 20) + '...',
+            amount: buildAmount,
+            fee: buildFee,
+          });
+
+          const result = await vault.buildAndSignTransaction(buildTo, buildAmount, buildFee);
+
+          if ('error' in result) {
+            console.error('[Background] Build failed:', result.error);
+            sendResponse({ error: result.error });
+            return;
+          }
+
+          console.log('[Background] Transaction built and signed:', result.txId);
+          sendResponse({
+            txid: result.txId,
+            protobufTx: result.protobufTx,
+          });
+        } catch (error) {
+          console.error('[Background] Build and sign failed:', error);
+          sendResponse({
+            error: error instanceof Error ? error.message : 'Build and sign failed',
+          });
+        }
+        return;
+
+      case INTERNAL_METHODS.BROADCAST_TRANSACTION:
+        // params: [protobufTx] - protobuf transaction object (not WASM)
+        // Called from popup after building and signing the transaction
+        const [protobufTx] = payload.params || [];
+
+        if (!protobufTx) {
+          sendResponse({ error: 'Missing transaction' });
           return;
         }
 
         try {
           console.log('[Background] Broadcasting transaction...');
 
-          const result = await vault.broadcastTransaction(rawTx);
+          const result = await vault.broadcastTransaction(protobufTx);
 
           if ('error' in result) {
             console.error('[Background] Broadcast failed:', result.error);
@@ -913,7 +965,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         } catch (error) {
           console.error('[Background] Broadcast failed:', error);
           sendResponse({
-            error: error instanceof Error ? error.message : 'Broadcast failed'
+            error: error instanceof Error ? error.message : 'Broadcast failed',
           });
         }
         return;

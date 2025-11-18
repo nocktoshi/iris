@@ -3,47 +3,14 @@
  * Uses WASM-based tonic-web-wasm-client for proper bigint handling
  */
 
-import initWasm, { GrpcClient } from '../lib/nbx-wasm/nbx_wasm.js';
+import { GrpcClient } from '../lib/nbx-wasm/nbx_wasm.js';
 import type { Note } from './types';
 import { base58 } from '@scure/base';
+import { ensureWasmInitialized } from './wasm-utils.js';
 
 // RPC endpoint configuration
 // NOTE: Using local grpcwebproxy (gRPC-web → gRPC for rpc.nockchain.net)
 const DEFAULT_ENDPOINT = 'http://localhost:8080';
-
-// Track WASM initialization
-let wasmInitialized = false;
-let wasmInitPromise: Promise<void> | null = null;
-
-/**
- * Initialize the WASM module
- * This must be called before using any WASM functionality
- */
-async function ensureWasmInitialized(): Promise<void> {
-  if (wasmInitialized) {
-    return;
-  }
-
-  if (wasmInitPromise) {
-    return wasmInitPromise;
-  }
-
-  wasmInitPromise = (async () => {
-    try {
-      // Initialize WASM with the correct path
-      const wasmUrl = chrome.runtime.getURL('lib/nbx-wasm/nbx_wasm_bg.wasm');
-      await initWasm({ module_or_path: wasmUrl });
-      wasmInitialized = true;
-      console.log('[RPC Browser] WASM module initialized');
-    } catch (error) {
-      console.error('[RPC Browser] Failed to initialize WASM:', error);
-      wasmInitPromise = null;
-      throw error;
-    }
-  })();
-
-  return wasmInitPromise;
-}
 
 /**
  * Browser RPC client for Nockchain blockchain

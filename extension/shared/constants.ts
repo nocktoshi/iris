@@ -114,6 +114,9 @@ export const INTERNAL_METHODS = {
   /** Sign a transaction (internal popup-initiated transactions) */
   SIGN_TRANSACTION: "wallet:signTransaction",
 
+  /** Build and sign a transaction without broadcasting */
+  BUILD_AND_SIGN_TRANSACTION: "wallet:buildAndSignTransaction",
+
   /** Send a transaction (internal popup-initiated transactions - builds, signs, and broadcasts) */
   SEND_TRANSACTION: "wallet:sendTransaction",
 

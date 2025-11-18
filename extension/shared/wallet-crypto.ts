@@ -8,35 +8,9 @@ import {
   validateMnemonic as validateMnemonicScure,
 } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english.js";
-import initCrypto, {
-  deriveMasterKeyFromMnemonic,
-} from "../lib/nbx-crypto/nbx_crypto.js";
-import initWasm from "../lib/nbx-wasm/nbx_wasm.js";
+import { deriveMasterKeyFromMnemonic } from "../lib/nbx-crypto/nbx_crypto.js";
 import { publicKeyToPKH } from "./address-encoding";
-
-let wasmInitialized = false;
-
-/**
- * Ensures WASM modules are initialized
- * Must be called before using any WASM functions
- * Initializes both nbx-crypto (for key derivation) and nbx-wasm (for address hashing)
- */
-async function ensureWasmInit() {
-  if (!wasmInitialized) {
-    // In service worker context, provide explicit WASM URLs
-    // Must pass as object to avoid deprecated parameter warning
-    const cryptoWasmUrl = chrome.runtime.getURL('lib/nbx-crypto/nbx_crypto_bg.wasm');
-    const wasmUrl = chrome.runtime.getURL('lib/nbx-wasm/nbx_wasm_bg.wasm');
-
-    // Initialize both modules in parallel
-    await Promise.all([
-      initCrypto({ module_or_path: cryptoWasmUrl }),
-      initWasm({ module_or_path: wasmUrl })
-    ]);
-
-    wasmInitialized = true;
-  }
-}
+import { ensureWasmInitialized as ensureWasmInit } from "./wasm-utils";
 
 /**
  * Generates a BIP-39 mnemonic (24 words)
