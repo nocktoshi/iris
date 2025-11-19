@@ -224,7 +224,7 @@ export async function buildTransaction(params: TransactionParams): Promise<Const
     spendConditions,
     new WasmDigest(recipientPKH),
     BigInt(amount), // gift
-    BigInt(1 << 1),
+    BigInt(1 << 15),
     fee !== undefined ? BigInt(fee) : null,
     new WasmDigest(refundPKH),
     includeLockData,
@@ -233,7 +233,13 @@ export async function buildTransaction(params: TransactionParams): Promise<Const
   console.log('[TxBuilder] Signing transaction...');
 
   // Sign the transaction
-  const rawTx = builder.sign(privateKey);
+  console.log(builder.cur_fee());
+  console.log(builder.calc_fee());
+  builder.sign(privateKey);
+  console.log(builder.cur_fee());
+  console.log(builder.calc_fee());
+  builder.validate();
+  const rawTx = builder.build();
 
   console.log('[TxBuilder]  Transaction signed, txId:', rawTx.id.value);
 
