@@ -489,7 +489,9 @@ export function HomeScreen() {
               <DropdownItem
                 icon={ExplorerIcon}
                 label="View on explorer"
-                onClick={() => window.open(`https://nockscan.net/address/${currentAccount?.address}`, '_blank')}
+                onClick={() =>
+                  window.open(`https://nockscan.net/address/${currentAccount?.address}`, '_blank')
+                }
               />
               <DropdownItem
                 icon={PermissionsIcon}
@@ -736,7 +738,7 @@ export function HomeScreen() {
                             className="text-[14px] font-medium"
                             style={{ color: 'var(--color-text-primary)' }}
                           >
-                            {t.type === 'received' ? 'Received' : 'Send'}
+                            {t.type === 'received' ? 'Received' : 'Sent'}
                           </div>
                           <div
                             className="text-[12px] flex items-center gap-1.5"

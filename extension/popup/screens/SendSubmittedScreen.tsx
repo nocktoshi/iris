@@ -4,7 +4,7 @@ import { SendPaperPlaneIcon } from '../components/icons/SendPaperPlaneIcon';
 import { PlusIcon } from '../components/icons/PlusIcon';
 
 export function SendSubmittedScreen() {
-  const { navigate, lastTransaction } = useStore();
+  const { navigate, lastTransaction, priceUsd } = useStore();
 
   function handleBack() {
     navigate('home');
@@ -41,7 +41,13 @@ export function SendSubmittedScreen() {
     lastTransaction?.amount.toLocaleString('en-US', {
       maximumFractionDigits: 0,
     }) || '0';
-  const sentUsdValue = '$0.00'; // TODO: Get from real price feed when available
+
+  // Calculate USD value based on amount and current price
+  const amountInNock = lastTransaction?.amount || 0;
+  const usdValue = amountInNock * priceUsd;
+  const sentUsdValue = usdValue > 0
+    ? `$${usdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : '$0.00';
 
   return (
     <div
