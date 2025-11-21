@@ -69,6 +69,9 @@ export const INTERNAL_METHODS = {
   /** Get wallet balance from blockchain */
   GET_BALANCE: "wallet:getBalance",
 
+  /** Get RPC connection status */
+  GET_CONNECTION_STATUS: "wallet:getConnectionStatus",
+
   /** Get pending transaction request for approval */
   GET_PENDING_TRANSACTION: "wallet:getPendingTransaction",
 
@@ -200,6 +203,9 @@ export const STORAGE_KEYS = {
 
   /** Last transaction sync timestamp per account address */
   LAST_TX_SYNC: "lastTxSync",
+
+  /** Cached balances per account address (persisted for offline access) */
+  CACHED_BALANCES: "cachedBalances",
 } as const;
 
 /**
@@ -223,6 +229,9 @@ export const MESSAGE_TARGETS = {
  */
 /** Default auto-lock timeout in minutes */
 export const AUTOLOCK_MINUTES = 15;
+
+/** Default RPC endpoint URL */
+export const RPC_ENDPOINT = 'https://rpc.nockbox.org';
 
 /**
  * Nockchain Currency Conversion
