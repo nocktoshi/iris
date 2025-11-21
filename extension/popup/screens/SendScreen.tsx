@@ -37,6 +37,8 @@ export function SendScreen() {
   const [editedFee, setEditedFee] = useState(defaultFeeNock);
   const [showFeeTooltip, setShowFeeTooltip] = useState(false);
   const [error, setError] = useState('');
+  const [isFeeManuallyEdited, setIsFeeManuallyEdited] = useState(false);
+  const [isCalculatingFee, setIsCalculatingFee] = useState(false);
 
   // Get real accounts from vault (filter out hidden accounts)
   const accounts = (wallet.accounts || []).filter(acc => !acc.hidden);
@@ -55,6 +57,7 @@ export function SendScreen() {
         ...wallet,
         currentAccount: result.account,
         address: result.account.address,
+        balance: wallet.accountBalances?.[result.account.address] ?? 0,
       };
       syncWallet(updatedWallet);
     }
@@ -75,6 +78,7 @@ export function SendScreen() {
     const feeNum = parseFloat(editedFee);
     if (!isNaN(feeNum) && feeNum >= 0) {
       setFee(editedFee);
+      setIsFeeManuallyEdited(true); // Mark as manually edited - stops auto-updates
     }
     setIsEditingFee(false);
   }
@@ -244,6 +248,72 @@ export function SendScreen() {
     };
   }, [walletDropdownOpen]);
 
+  // Dynamic fee estimation - debounced
+  useEffect(() => {
+    // Skip if user manually edited fee - they have full control
+    if (isFeeManuallyEdited) return;
+
+    // Skip if amount is not entered
+    if (!amount) return;
+
+    const amountNum = parseFloat(amount.replace(/,/g, ''));
+    if (isNaN(amountNum) || amountNum <= 0) return;
+
+    // Use recipient address if provided and valid, otherwise use a dummy address
+    // (fee doesn't depend on recipient address, only on amount/UTXOs needed)
+    let addressToUse = receiverAddress.trim();
+
+    // Validate address if provided, otherwise use dummy
+    if (addressToUse) {
+      try {
+        const bytes = base58.decode(addressToUse);
+        if (bytes.length !== 40) {
+          addressToUse = ''; // Invalid, will use dummy
+        }
+      } catch {
+        addressToUse = ''; // Invalid base58, will use dummy
+      }
+    }
+
+    // If no valid address provided, use a dummy address for estimation
+    // The actual recipient doesn't affect fee - only amount/UTXOs matter
+    if (!addressToUse) {
+      // Dummy V1 PKH address (8 byte version + 32 byte PKH digest)
+      const dummyBytes = new Uint8Array(40).fill(0);
+      addressToUse = base58.encode(dummyBytes);
+    }
+
+    // Show loading state immediately
+    setIsCalculatingFee(true);
+
+    // Debounce: wait 500ms before estimating to avoid excessive WASM operations
+    const timeoutId = setTimeout(async () => {
+      try {
+        const amountNicks = Math.floor(amountNum * NOCK_TO_NICKS);
+        const result = await send<{ fee?: number; error?: string }>(
+          INTERNAL_METHODS.ESTIMATE_TRANSACTION_FEE,
+          [addressToUse, amountNicks]
+        );
+
+        if (result?.fee) {
+          const feeNock = result.fee / NOCK_TO_NICKS;
+          setFee(feeNock.toString());
+          setEditedFee(feeNock.toString());
+        }
+      } catch (error) {
+        console.error('[SendScreen] Fee estimation failed:', error);
+        // Keep current fee on error - don't disrupt user experience
+      } finally {
+        setIsCalculatingFee(false);
+      }
+    }, 500);
+
+    return () => {
+      clearTimeout(timeoutId);
+      setIsCalculatingFee(false);
+    };
+  }, [receiverAddress, amount, isFeeManuallyEdited]);
+
   // -----------------------------------------------------------------------------
 
   return (
@@ -372,7 +442,7 @@ export function SendScreen() {
                       </div>
                     </div>
                     <div className="ml-auto text-[14px] leading-[18px] font-medium tracking-[0.01em] whitespace-nowrap">
-                      {formatInt(currentBalance)} NOCK
+                      {formatInt(wallet.accountBalances?.[account.address] ?? 0)} NOCK
                     </div>
                   </button>
                 );
@@ -515,8 +585,12 @@ export function SendScreen() {
               <button
                 type="button"
                 onClick={handleEditFee}
-                className="rounded-lg pl-2.5 pr-2 py-1.5 flex items-center gap-2 transition-colors focus:outline-none"
-                style={{ backgroundColor: 'var(--color-surface-800)' }}
+                className="rounded-lg pl-2.5 pr-2 py-1.5 flex items-center justify-between transition-colors focus:outline-none"
+                style={{
+                  backgroundColor: 'var(--color-surface-800)',
+                  minWidth: '120px',
+                  minHeight: '34px',
+                }}
                 onMouseEnter={e =>
                   (e.currentTarget.style.backgroundColor = 'var(--color-surface-700)')
                 }
@@ -525,12 +599,22 @@ export function SendScreen() {
                 }
               >
                 <div
-                  className="text-[14px] leading-[18px] font-medium"
+                  className="text-[14px] leading-[18px] font-medium flex items-center gap-1.5"
                   style={{ color: 'var(--color-text-muted)' }}
                 >
-                  {fee} NOCK
+                  {isCalculatingFee ? (
+                    <div
+                      className="w-3.5 h-3.5 border-2 rounded-full animate-spin"
+                      style={{
+                        borderColor: 'var(--color-text-muted)',
+                        borderTopColor: 'transparent',
+                      }}
+                    />
+                  ) : (
+                    `${fee} NOCK`
+                  )}
                 </div>
-                <img src={PencilEditIcon} alt="Edit" className="w-4 h-4" />
+                <img src={PencilEditIcon} alt="Edit" className="w-4 h-4 flex-shrink-0" />
               </button>
             )}
           </div>
