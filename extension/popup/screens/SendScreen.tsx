@@ -39,6 +39,9 @@ export function SendScreen() {
   const [error, setError] = useState('');
   const [isFeeManuallyEdited, setIsFeeManuallyEdited] = useState(false);
   const [isCalculatingFee, setIsCalculatingFee] = useState(false);
+  const [minimumFee, setMinimumFee] = useState<number | null>(null); // Minimum fee from WASM calculation
+  const [feeWarning, setFeeWarning] = useState(''); // Warning if fee is too low
+  const [isSendingMax, setIsSendingMax] = useState(false); // Track if user is sending entire balance
 
   // Get real accounts from vault (filter out hidden accounts)
   const accounts = (wallet.accounts || []).filter(acc => !acc.hidden);
@@ -77,6 +80,15 @@ export function SendScreen() {
   function handleSaveFee() {
     const feeNum = parseFloat(editedFee);
     if (!isNaN(feeNum) && feeNum >= 0) {
+      // Validate against minimum fee if we have one
+      if (minimumFee !== null && feeNum < minimumFee) {
+        setFeeWarning(
+          `Fee too low. Minimum required: ${minimumFee.toFixed(2)} NOCK`
+        );
+        // Still allow saving the fee, but show warning
+      } else {
+        setFeeWarning(''); // Clear warning if fee is valid
+      }
       setFee(editedFee);
       setIsFeeManuallyEdited(true); // Mark as manually edited - stops auto-updates
     }
@@ -299,6 +311,8 @@ export function SendScreen() {
           const feeNock = result.fee / NOCK_TO_NICKS;
           setFee(feeNock.toString());
           setEditedFee(feeNock.toString());
+          setMinimumFee(feeNock); // Store as minimum required fee
+          setFeeWarning(''); // Clear any previous warnings
         }
       } catch (error) {
         console.error('[SendScreen] Fee estimation failed:', error);
@@ -618,6 +632,19 @@ export function SendScreen() {
               </button>
             )}
           </div>
+
+          {/* Fee warning - show if user set fee below minimum */}
+          {feeWarning && (
+            <div
+              className="px-3 py-2 text-[13px] leading-[18px] font-medium rounded-lg mt-2"
+              style={{
+                backgroundColor: 'var(--color-red-light)',
+                color: 'var(--color-red)',
+              }}
+            >
+              {feeWarning}
+            </div>
+          )}
         </div>
       </div>
 
