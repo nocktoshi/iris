@@ -140,7 +140,11 @@ export function ImportScreen() {
         accounts: [firstAccount],
         currentAccount: firstAccount,
         balance: 0,
+        availableBalance: 0,
+        pendingOutflow: 0,
+        hasPendingOutbound: false,
         accountBalances: {},
+        accountBalanceDetails: {},
       });
       setOnboardingMnemonic(null);
       navigate('onboarding-import-success');

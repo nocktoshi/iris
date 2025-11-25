@@ -48,12 +48,11 @@ export function LockedScreen() {
       const accounts = result.accounts || [];
       const currentAccount = result.currentAccount || accounts[0] || null;
       syncWallet({
+        ...wallet, // Preserve existing state
         locked: false,
         address: result.address || null,
         accounts,
         currentAccount,
-        balance: wallet.balance || 0,
-        accountBalances: wallet.accountBalances || {},
       });
 
       // Trigger balance fetch after successful unlock

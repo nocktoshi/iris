@@ -110,6 +110,8 @@ export interface CachedTransaction {
   confirmedAtBlock?: number;
   /** Current number of confirmations (calculated dynamically) */
   confirmations?: number;
+  /** Confirmed balance at the time this transaction was sent (for detecting confirmation) */
+  confirmedBalanceAtSend?: number;
 }
 
 /**
@@ -126,6 +128,21 @@ export interface TransactionCache {
  */
 export interface LastSyncTimestamps {
   [accountAddress: string]: number;
+}
+
+/**
+ * Structured balance information for an account
+ * Separates confirmed (on-chain) balance from pending transaction effects
+ */
+export interface AccountBalance {
+  /** Balance from confirmed UTXOs on-chain */
+  confirmed: number;
+  /** Sum of (amount + fee) for pending outbound transactions */
+  pendingOut: number;
+  /** Sum of amounts for pending inbound transactions */
+  pendingIn: number;
+  /** Spendable balance: confirmed - pendingOut */
+  available: number;
 }
 
 /**

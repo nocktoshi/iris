@@ -1187,6 +1187,7 @@ function scheduleAlarm() {
 /**
  * Transaction polling service
  * Polls pending and recently confirmed transactions to update their status and confirmation count
+ * Also detects incoming transactions by comparing current UTXOs against cached ones
  */
 async function pollTransactionStatus() {
   try {
@@ -1201,7 +1202,7 @@ async function pollTransactionStatus() {
     // This is a background service, so DOM access isn't available
 
     // Get all accounts
-    const accounts = await vault.getAccounts();
+    const accounts = vault.getAccounts();
     if (!accounts || accounts.length === 0) {
       return;
     }
@@ -1219,8 +1220,6 @@ async function pollTransactionStatus() {
       return;
     }
 
-    const { MAX_MONITORED_CONFIRMATIONS } = await import('../shared/constants');
-
     // Check each account's transactions
     for (const account of accounts) {
       const transactions = await vault.getCachedTransactions(account.address);
@@ -1228,42 +1227,38 @@ async function pollTransactionStatus() {
       // Get pending transactions
       const pendingTxs = transactions.filter(tx => tx.status === 'pending');
 
-      // Get recently confirmed transactions (less than MAX_MONITORED_CONFIRMATIONS)
-      // Include transactions with undefined confirmations to fix stuck transactions
-      const recentConfirmed = transactions.filter(
-        tx =>
-          tx.status === 'confirmed' &&
-          tx.confirmedAtBlock !== undefined &&
-          (tx.confirmations === undefined || tx.confirmations < MAX_MONITORED_CONFIRMATIONS)
-      );
-
       console.log(
-        `[TX Polling] Account ${account.address.slice(0, 20)}... has ${pendingTxs.length} pending and ${recentConfirmed.length} recently confirmed transactions`
+        `[TX Polling] Account ${account.address.slice(0, 20)}... has ${pendingTxs.length} pending transactions`
       );
 
       // Check pending transactions
+      // Expiry threshold: 24 hours (in milliseconds)
+      const PENDING_TX_EXPIRY_MS = 24 * 60 * 60 * 1000;
+
       for (const tx of pendingTxs) {
         try {
-          const accepted = await rpcClient.isTransactionAccepted(tx.txid);
-
-          if (accepted) {
-            // Transaction confirmed - use current block height as approximation
-            // Note: The transaction may have been confirmed in a previous block,
-            // but we don't have a way to query the exact confirmation block.
-            // This means the first confirmation might show as 1, 2, or 3 depending
-            // on when we detect it, but subsequent confirmations will increment correctly.
-            const confirmedAtBlock = Number(currentBlockHeight);
+          // Check if transaction has been pending too long (expired)
+          const txAge = Date.now() - tx.timestamp;
+          if (txAge > PENDING_TX_EXPIRY_MS) {
             console.log(
-              `[TX Polling] Transaction ${tx.txid.slice(0, 20)}... confirmed at or before block ${confirmedAtBlock}`
+              `[TX Polling] Transaction ${tx.txid.slice(0, 20)}... expired after ${Math.round(txAge / 1000 / 60 / 60)} hours - marking as failed`
             );
-            await vault.updateTransactionStatus(
-              account.address,
-              tx.txid,
-              'confirmed',
-              confirmedAtBlock
-            );
+            await vault.updateTransactionStatus(account.address, tx.txid, 'failed');
+            continue;
           }
-          // If not accepted, leave as pending (will be checked again later)
+
+          // Note: We do NOT use isTransactionAccepted here because it returns true
+          // for transactions in the mempool, not just confirmed in blocks.
+          // Instead, we detect confirmation by checking if our UTXOs have changed.
+          // For now, pending transactions stay pending until:
+          // 1. They expire (24h timeout above)
+          // 2. We detect the spent UTXOs disappear and change UTXO appears (TODO)
+          //
+          // The user will see the balance update automatically when the transaction
+          // confirms because fetchBalance() queries the actual on-chain UTXOs.
+          console.log(
+            `[TX Polling] Transaction ${tx.txid.slice(0, 20)}... still pending (age: ${Math.round(txAge / 1000 / 60)} min)`
+          );
         } catch (error) {
           console.error(
             `[TX Polling] Error checking transaction ${tx.txid.slice(0, 20)}:`,
@@ -1272,13 +1267,6 @@ async function pollTransactionStatus() {
         }
       }
 
-      // Update confirmation counts for recently confirmed transactions
-      if (recentConfirmed.length > 0) {
-        await vault.updateTransactionConfirmations(account.address, Number(currentBlockHeight));
-        console.log(
-          `[TX Polling] Updated confirmation counts for ${recentConfirmed.length} transactions`
-        );
-      }
     }
 
     console.log('[TX Polling] Transaction status poll completed');

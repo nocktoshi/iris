@@ -7,6 +7,7 @@ import { INTERNAL_METHODS, APPROVAL_CONSTANTS } from '../shared/constants';
 import { hasIncompleteOnboarding } from '../shared/onboarding';
 import {
   Account,
+  AccountBalance,
   TransactionDetails,
   SignRequest,
   TransactionRequest,
@@ -59,6 +60,34 @@ export type Screen =
   | 'locked';
 
 /**
+ * Compute available balance from confirmed balance and cached transactions
+ */
+function computeAccountBalance(
+  confirmedBalance: number,
+  cachedTxs: CachedTransaction[]
+): AccountBalance {
+  const pendingSent = cachedTxs.filter(
+    tx => tx.status === 'pending' && tx.type === 'sent'
+  );
+  const pendingReceived = cachedTxs.filter(
+    tx => tx.status === 'pending' && tx.type === 'received'
+  );
+
+  const pendingOut = pendingSent.reduce(
+    (sum, tx) => sum + tx.amount + tx.fee,
+    0
+  );
+  const pendingIn = pendingReceived.reduce(
+    (sum, tx) => sum + tx.amount,
+    0
+  );
+
+  const available = Math.max(0, confirmedBalance - pendingOut);
+
+  return { confirmed: confirmedBalance, pendingOut, pendingIn, available };
+}
+
+/**
  * Wallet state synced from background service worker
  */
 interface WalletState {
@@ -67,7 +96,11 @@ interface WalletState {
   accounts: Account[];
   currentAccount: Account | null;
   balance: number;
-  accountBalances: Record<string, number>; // Map of address -> balance
+  availableBalance: number;
+  pendingOutflow: number;
+  hasPendingOutbound: boolean;
+  accountBalances: Record<string, number>; // Map of address -> confirmed balance
+  accountBalanceDetails: Record<string, AccountBalance>; // Map of address -> detailed balance
 }
 
 /**
@@ -169,7 +202,11 @@ export const useStore = create<AppStore>((set, get) => ({
     accounts: [],
     currentAccount: null,
     balance: 0,
+    availableBalance: 0,
+    pendingOutflow: 0,
+    hasPendingOutbound: false,
     accountBalances: {},
+    accountBalanceDetails: {},
   },
 
   onboardingMnemonic: null,
@@ -269,13 +306,19 @@ export const useStore = create<AppStore>((set, get) => ({
       const stored = await chrome.storage.local.get([STORAGE_KEYS.CACHED_BALANCES]);
       const cachedBalances = (stored[STORAGE_KEYS.CACHED_BALANCES] || {}) as Record<string, number>;
 
+      // Initial wallet state with confirmed balances (available balance computed after TX fetch)
+      const confirmedBalance = state.currentAccount ? cachedBalances[state.currentAccount.address] || 0 : 0;
       const walletState: WalletState = {
         locked: state.locked,
         address: state.address || null,
         accounts: state.accounts || [],
         currentAccount: state.currentAccount || null,
-        balance: state.currentAccount ? cachedBalances[state.currentAccount.address] || 0 : 0,
+        balance: confirmedBalance,
+        availableBalance: confirmedBalance, // Will be recalculated after fetching transactions
+        pendingOutflow: 0,
+        hasPendingOutbound: false,
         accountBalances: cachedBalances, // Load all cached balances
+        accountBalanceDetails: {},
       };
 
       // Determine initial screen
@@ -353,12 +396,77 @@ export const useStore = create<AppStore>((set, get) => ({
       const rpcClient = createBrowserClient();
       const balanceResult = await queryV1Balance(currentAccount.address, rpcClient);
 
-      console.log('[Store] ✅ Balance fetched:', balanceResult.totalNock, 'NOCK');
+      const confirmedBalance = balanceResult.totalNock || 0;
+      console.log('[Store] ✅ Confirmed balance fetched:', confirmedBalance, 'NOCK');
+
+      // Check if any pending sent transactions have confirmed
+      // Detection: if confirmed balance dropped to approximately (confirmedBalanceAtSend - amount - fee)
+      let cachedTxs = get().cachedTransactions;
+      const pendingSentTxs = cachedTxs.filter(
+        tx => tx.status === 'pending' && tx.type === 'sent' && tx.confirmedBalanceAtSend !== undefined
+      );
+
+      for (const pendingTx of pendingSentTxs) {
+        const expectedBalanceAfterConfirm = pendingTx.confirmedBalanceAtSend! - pendingTx.amount - pendingTx.fee;
+        // Use a small tolerance for floating point comparison (0.01 NOCK)
+        const tolerance = 0.01;
+
+        console.log('[Store] 🔍 Checking pending TX confirmation:', {
+          txid: pendingTx.txid.slice(0, 20) + '...',
+          confirmedBalanceAtSend: pendingTx.confirmedBalanceAtSend,
+          expectedAfterConfirm: expectedBalanceAfterConfirm,
+          currentConfirmed: confirmedBalance,
+        });
+
+        // Transaction confirmed if:
+        // 1. Balance dropped to expected level (normal case)
+        // 2. Balance dropped below expected (e.g., due to rounding or higher actual fees)
+        if (confirmedBalance <= expectedBalanceAfterConfirm + tolerance) {
+          // Get current block height for tracking confirmations
+          let confirmedAtBlock: number | undefined;
+          try {
+            const currentBlockHeight = await rpcClient.getCurrentBlockHeight();
+            confirmedAtBlock = Number(currentBlockHeight);
+            console.log('[Store] ✅ Transaction confirmed at block', confirmedAtBlock);
+          } catch (e) {
+            console.warn('[Store] Could not get block height for confirmation tracking:', e);
+          }
+
+          console.log('[Store] ✅ Transaction confirmed! Balance dropped to expected level.');
+
+          // Update the transaction status to confirmed (with block height for confirmation tracking)
+          await get().updateTransactionStatus(pendingTx.txid, 'confirmed', confirmedAtBlock);
+
+          // Refresh cached transactions to get the updated status
+          await get().fetchCachedTransactions();
+          cachedTxs = get().cachedTransactions;
+
+          // Since we only support one pending TX at a time, break out of the loop
+          break;
+        }
+      }
+
+      // Compute available balance using (potentially updated) cached transactions
+      const balanceDetails = computeAccountBalance(confirmedBalance, cachedTxs);
+      const hasPendingOutbound = cachedTxs.some(
+        tx => tx.status === 'pending' && tx.type === 'sent'
+      );
+
+      console.log('[Store] 📊 Balance details:', {
+        confirmed: balanceDetails.confirmed,
+        pendingOut: balanceDetails.pendingOut,
+        available: balanceDetails.available,
+        hasPendingOutbound,
+      });
 
       const currentWallet = get().wallet;
       const updatedBalances = {
         ...currentWallet.accountBalances,
-        [currentAccount.address]: balanceResult.totalNock || 0,
+        [currentAccount.address]: confirmedBalance,
+      };
+      const updatedBalanceDetails = {
+        ...currentWallet.accountBalanceDetails,
+        [currentAccount.address]: balanceDetails,
       };
 
       // Save updated balances to storage for offline access
@@ -369,8 +477,12 @@ export const useStore = create<AppStore>((set, get) => ({
       set({
         wallet: {
           ...currentWallet,
-          balance: balanceResult.totalNock || 0,
+          balance: confirmedBalance,
+          availableBalance: balanceDetails.available,
+          pendingOutflow: balanceDetails.pendingOut,
+          hasPendingOutbound,
           accountBalances: updatedBalances,
+          accountBalanceDetails: updatedBalanceDetails,
         },
         isBalanceFetching: false,
       });
@@ -415,7 +527,29 @@ export const useStore = create<AppStore>((set, get) => ({
         [currentAccount.address]
       );
 
-      set({ cachedTransactions: result.transactions || [] });
+      const cachedTxs = result.transactions || [];
+      set({ cachedTransactions: cachedTxs });
+
+      // Recalculate available balance with updated transactions
+      const currentWallet = get().wallet;
+      const confirmedBalance = currentWallet.balance;
+      const balanceDetails = computeAccountBalance(confirmedBalance, cachedTxs);
+      const hasPendingOutbound = cachedTxs.some(
+        tx => tx.status === 'pending' && tx.type === 'sent'
+      );
+
+      set({
+        wallet: {
+          ...currentWallet,
+          availableBalance: balanceDetails.available,
+          pendingOutflow: balanceDetails.pendingOut,
+          hasPendingOutbound,
+          accountBalanceDetails: {
+            ...currentWallet.accountBalanceDetails,
+            [currentAccount.address]: balanceDetails,
+          },
+        },
+      });
     } catch (error) {
       console.error('Failed to fetch cached transactions:', error);
     }
@@ -427,6 +561,11 @@ export const useStore = create<AppStore>((set, get) => ({
       const currentAccount = get().wallet.currentAccount;
       if (!currentAccount) return;
 
+      // Store the confirmed balance at send time for detecting confirmation later
+      // When the on-chain balance drops below (confirmedBalanceAtSend - amount - fee),
+      // we know the transaction has confirmed
+      const confirmedBalanceAtSend = get().wallet.balance;
+
       const transaction: CachedTransaction = {
         txid,
         type: 'sent',
@@ -435,8 +574,17 @@ export const useStore = create<AppStore>((set, get) => ({
         address: to,
         timestamp: Date.now(),
         status: 'pending',
-        priceUsd: get().priceUsd > 0 ? get().priceUsd : undefined, // Include USD price if available
+        priceUsd: get().priceUsd > 0 ? get().priceUsd : undefined,
+        confirmedBalanceAtSend,
       };
+
+      console.log('[Store] Adding sent transaction to cache:', {
+        txid: txid.slice(0, 20) + '...',
+        amount,
+        fee,
+        confirmedBalanceAtSend,
+        expectedBalanceAfterConfirm: confirmedBalanceAtSend - amount - fee,
+      });
 
       await send(INTERNAL_METHODS.ADD_TRANSACTION_TO_CACHE, [currentAccount.address, transaction]);
 

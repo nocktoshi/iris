@@ -192,48 +192,17 @@ export function HomeScreen() {
   async function handleRefreshBalance() {
     setIsRefreshing(true);
     try {
+      // Fetch latest cached transactions first (in case background service updated them)
+      await fetchCachedTransactions();
+
+      // Then fetch balance (which will recalculate available balance using cached transactions)
       await fetchBalance();
 
-      // Check status of pending transactions (only last 3 to avoid rate limits)
-      if (pendingTransactions.length > 0) {
-        const recentPending = pendingTransactions.slice(-3); // Only check last 3
-        console.log(
-          `[HomeScreen] Checking status of ${recentPending.length} most recent pending transactions...`
-        );
-        const { createBrowserClient } = await import('../../shared/rpc-client-browser');
-        const rpcClient = createBrowserClient();
-
-        // Get current block height for confirmation tracking
-        const currentBlockHeight = await rpcClient.getCurrentBlockHeight();
-        console.log(`[HomeScreen] Current block height: ${currentBlockHeight}`);
-
-        for (const tx of recentPending) {
-          console.log(`[HomeScreen] Checking transaction ${tx.txid.slice(0, 20)}...`);
-          try {
-            const accepted = await rpcClient.isTransactionAccepted(tx.txid);
-            console.log(
-              `[HomeScreen] Transaction ${tx.txid.slice(0, 20)}... accepted: ${accepted}`
-            );
-
-            if (accepted) {
-              // Transaction was accepted - mark as confirmed with block height
-              await updateTransactionStatus(tx.txid, 'confirmed', Number(currentBlockHeight));
-              console.log(
-                `[HomeScreen] Marked transaction as confirmed at block ${currentBlockHeight}`
-              );
-            } else {
-              // Transaction was rejected - mark as failed
-              await updateTransactionStatus(tx.txid, 'failed');
-              console.log(`[HomeScreen] Marked transaction as failed (rejected by mempool)`);
-            }
-          } catch (error) {
-            console.error(
-              `[HomeScreen] Error checking transaction ${tx.txid.slice(0, 20)}:`,
-              error
-            );
-          }
-        }
-      }
+      // Note: We intentionally do NOT check transaction status here using isTransactionAccepted.
+      // That RPC returns true for transactions in the mempool (not just confirmed in blocks).
+      // The background polling service handles actual confirmation detection by checking
+      // if the input UTXOs have been spent. The 24h expiry handles stuck transactions.
+      console.log('[HomeScreen] Balance refreshed. Pending TX status handled by background service.');
     } finally {
       setIsRefreshing(false);
     }
@@ -242,13 +211,23 @@ export function HomeScreen() {
   // Get pending transactions (used in refresh handler)
   const pendingTransactions = cachedTransactions.filter(tx => tx.status === 'pending');
 
-  const balance = wallet.balance.toLocaleString('en-US', {
+  // Use available balance (confirmed - pending outflow) as the primary display
+  const displayBalance = wallet.availableBalance;
+  const balance = displayBalance.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 
-  // Calculate USD value based on balance and price
-  const totalBalanceUsd = wallet.balance * priceUsd;
+  // Format pending outflow for display
+  const hasPendingOutbound = wallet.hasPendingOutbound;
+  const pendingOutflow = wallet.pendingOutflow;
+  const formattedPendingOutflow = pendingOutflow.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+  // Calculate USD value based on available balance and price
+  const totalBalanceUsd = displayBalance * priceUsd;
   const formattedUsdValue = totalBalanceUsd.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -621,18 +600,39 @@ export function HomeScreen() {
                 </>
               )}
             </div>
+            {/* Pending outflow indicator */}
+            {hasPendingOutbound && !balanceHidden && (
+              <div
+                className="mt-1 text-[13px] font-medium leading-[18px]"
+                style={{ color: '#C88414' }}
+              >
+                −{formattedPendingOutflow} NOCK pending
+              </div>
+            )}
           </div>
 
           {/* Actions */}
           <div className="grid grid-cols-2 gap-2 mb-3">
-            <button
-              className="rounded-card shadow-card flex flex-col items-start justify-center gap-4 p-3 font-sans text-[14px] font-medium transition-all hover:opacity-90 active:scale-[0.98]"
-              style={{ backgroundColor: 'var(--color-primary)', color: '#000' }}
-              onClick={() => navigate('send')}
-            >
-              <SendPaperPlaneIcon className="h-5 w-5" />
-              Send
-            </button>
+            <div className="relative">
+              <button
+                className="w-full rounded-card shadow-card flex flex-col items-start justify-center gap-4 p-3 font-sans text-[14px] font-medium transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                style={{ backgroundColor: 'var(--color-primary)', color: '#000' }}
+                onClick={() => navigate('send')}
+                disabled={hasPendingOutbound}
+                title={hasPendingOutbound ? 'Waiting for pending transaction to confirm' : undefined}
+              >
+                <SendPaperPlaneIcon className="h-5 w-5" />
+                Send
+              </button>
+              {hasPendingOutbound && (
+                <div
+                  className="absolute -bottom-5 left-0 right-0 text-[10px] font-medium text-center"
+                  style={{ color: '#C88414' }}
+                >
+                  Waiting for confirmation
+                </div>
+              )}
+            </div>
             <button
               className="rounded-card shadow-card flex flex-col items-start justify-center gap-4 p-3 font-sans text-[14px] font-medium transition-all hover:opacity-90 active:scale-[0.98]"
               style={{

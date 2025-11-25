@@ -4,7 +4,6 @@ import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import { ChevronRightIcon } from '../components/icons/ChevronRightIcon';
 import IrisLogo40 from '../assets/iris-logo-40.svg';
 import { truncateAddress, formatUTCTimestamp } from '../utils/format';
-import { REQUIRED_CONFIRMATIONS } from '../../shared/constants';
 
 export function TransactionDetailsScreen() {
   const {
@@ -71,7 +70,7 @@ export function TransactionDetailsScreen() {
   });
   const usdValue = `$${(selectedTransaction.amount * priceUsd).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  // Determine status display with confirmation progress
+  // Determine status display
   let statusText: string;
   let statusColor: string;
 
@@ -79,17 +78,11 @@ export function TransactionDetailsScreen() {
     statusText = 'Failed';
     statusColor = 'var(--color-red)';
   } else if (selectedTransaction.status === 'pending') {
-    statusText = `Pending (0/${REQUIRED_CONFIRMATIONS})`;
+    statusText = 'Pending';
     statusColor = '#C88414';
   } else if (selectedTransaction.status === 'confirmed') {
-    const confirmations = selectedTransaction.confirmations ?? 0;
-    if (confirmations < REQUIRED_CONFIRMATIONS) {
-      statusText = `Confirming (${confirmations}/${REQUIRED_CONFIRMATIONS})`;
-      statusColor = '#C88414';
-    } else {
-      statusText = 'Confirmed';
-      statusColor = 'var(--color-green)';
-    }
+    statusText = 'Confirmed';
+    statusColor = 'var(--color-green)';
   } else {
     statusText = 'Unknown';
     statusColor = 'var(--color-text-muted)';

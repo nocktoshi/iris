@@ -27,6 +27,83 @@ export function SendScreen() {
   const { theme } = useTheme();
   const { navigate, wallet, syncWallet, setLastTransaction } = useStore();
 
+  // Check for pending outbound transactions - block sending if any exist
+  const hasPendingOutbound = wallet.hasPendingOutbound;
+
+  // If there's a pending transaction, show blocking UI
+  if (hasPendingOutbound) {
+    return (
+      <div
+        className="w-[357px] h-[600px] flex flex-col"
+        style={{ backgroundColor: 'var(--color-bg)', color: 'var(--color-text-primary)' }}
+      >
+        {/* Header */}
+        <header
+          className="flex items-center justify-between h-16 px-4"
+          style={{ borderBottom: '1px solid var(--color-divider)' }}
+        >
+          <button
+            className="p-2 transition"
+            style={{ color: 'var(--color-text-primary)', opacity: 0.8 }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '0.8')}
+            onClick={() => navigate('home')}
+            aria-label="Back"
+          >
+            <ChevronLeftIcon className="w-5 h-5" />
+          </button>
+          <h1 className="text-[16px] font-medium tracking-[0.01em]">Send NOCK</h1>
+          <div className="w-7" />
+        </header>
+
+        {/* Blocking message */}
+        <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
+            style={{ backgroundColor: 'var(--color-surface-800)' }}
+          >
+            <svg
+              className="w-8 h-8"
+              style={{ color: '#C88414' }}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          <h2
+            className="text-[18px] font-semibold mb-2"
+            style={{ color: 'var(--color-text-primary)' }}
+          >
+            Transaction Pending
+          </h2>
+          <p
+            className="text-[14px] leading-[20px] mb-6"
+            style={{ color: 'var(--color-text-muted)' }}
+          >
+            Please wait for your pending transaction to confirm before sending another.
+            This usually takes about 20 minutes.
+          </p>
+          <button
+            className="rounded-lg px-6 py-3 text-[14px] font-medium transition"
+            style={{ backgroundColor: 'var(--color-surface-800)' }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--color-surface-700)')}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'var(--color-surface-800)')}
+            onClick={() => navigate('home')}
+          >
+            Back to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
   const [receiverAddress, setReceiverAddress] = useState('');
   const [amount, setAmount] = useState('');
@@ -45,7 +122,8 @@ export function SendScreen() {
   // Get real accounts from vault (filter out hidden accounts)
   const accounts = (wallet.accounts || []).filter(acc => !acc.hidden);
   const currentAccount = wallet.currentAccount || accounts[0];
-  const currentBalance = wallet.balance;
+  // Use available balance (which accounts for pending outflows)
+  const currentBalance = wallet.availableBalance;
 
   // Account switching handler
   async function handleSwitchAccount(index: number) {
