@@ -391,10 +391,21 @@ export const useStore = create<AppStore>((set, get) => ({
         return;
       }
 
+      // Capture the address we're fetching for to detect account switches
+      const fetchingForAddress = currentAccount.address;
+
       // Run balance query directly in popup context (not service worker)
       // This avoids WASM initialization issues in service worker
       const rpcClient = createBrowserClient();
       const balanceResult = await queryV1Balance(currentAccount.address, rpcClient);
+
+      // Check if user switched accounts while we were fetching
+      const accountAfterFetch = get().wallet.currentAccount;
+      if (accountAfterFetch?.address !== fetchingForAddress) {
+        console.log('[Store] Account changed during balance fetch, discarding stale result');
+        set({ isBalanceFetching: false });
+        return;
+      }
 
       const confirmedBalance = balanceResult.totalNock || 0;
       console.log('[Store] ✅ Confirmed balance fetched:', confirmedBalance, 'NOCK');
@@ -522,10 +533,20 @@ export const useStore = create<AppStore>((set, get) => ({
       const currentAccount = get().wallet.currentAccount;
       if (!currentAccount) return;
 
+      // Capture the address we're fetching for to detect account switches
+      const fetchingForAddress = currentAccount.address;
+
       const result = await send<{ transactions: CachedTransaction[] }>(
         INTERNAL_METHODS.GET_CACHED_TRANSACTIONS,
         [currentAccount.address]
       );
+
+      // Check if user switched accounts while we were fetching
+      const accountAfterFetch = get().wallet.currentAccount;
+      if (accountAfterFetch?.address !== fetchingForAddress) {
+        console.log('[Store] Account changed during transaction fetch, discarding stale result');
+        return;
+      }
 
       const cachedTxs = result.transactions || [];
       set({ cachedTransactions: cachedTxs });
