@@ -12,7 +12,12 @@ import {
 } from './wallet-crypto';
 import { ERROR_CODES, STORAGE_KEYS, ACCOUNT_COLORS, PRESET_WALLET_STYLES } from './constants';
 import { Account } from './types';
-import { buildMultiNotePayment, type Note, buildTransaction, buildPayment } from './transaction-builder';
+import {
+  buildMultiNotePayment,
+  type Note,
+  buildTransaction,
+  buildPayment,
+} from './transaction-builder';
 import * as wasm from '@nockbox/iris-wasm/iris_wasm.js';
 import { queryV1Balance } from './balance-query';
 import { createBrowserClient } from './rpc-client-browser';
@@ -28,10 +33,7 @@ import { initWasmModules } from './wasm-utils';
  *
  * NOTE: Prefers pre-computed base58 values from the RPC response to avoid WASM init issues
  */
-async function convertNoteForTxBuilder(
-  note: BalanceNote,
-  ownerPKH: string
-): Promise<Note> {
+async function convertNoteForTxBuilder(note: BalanceNote, ownerPKH: string): Promise<Note> {
   // Use pre-computed base58 strings if available (from WASM gRPC client)
   let nameFirst: string;
   let nameLast: string;
@@ -608,10 +610,10 @@ export class Vault {
    */
   async getBalance(): Promise<
     | {
-      totalNock: number;
-      totalNicks: bigint;
-      utxoCount: number;
-    }
+        totalNock: number;
+        totalNicks: bigint;
+        utxoCount: number;
+      }
     | { error: string }
   > {
     if (this.state.locked) {
@@ -1214,9 +1216,9 @@ export class Vault {
             hasSpend: !!spendEntry.spend,
             name: spendEntry.name
               ? {
-                first: spendEntry.name.first?.slice(0, 20) + '...',
-                last: spendEntry.name.last?.slice(0, 20) + '...',
-              }
+                  first: spendEntry.name.first?.slice(0, 20) + '...',
+                  last: spendEntry.name.last?.slice(0, 20) + '...',
+                }
               : 'missing',
           });
 
@@ -1398,15 +1400,16 @@ export class Vault {
 
   /**
    * Sign a raw transaction using iris-wasm
-   * 
+   *
    * @param params - Transaction parameters with raw tx jam and notes/spend conditions
    * @returns Hex-encoded signed transaction jam
    */
   async signRawTx(params: {
-    rawTx: any;  // Protobuf wasm.RawTx object
-    notes: any[];  // Protobuf Note objects
-    spendConditions: any[];  // Protobuf SpendCondition objects
-  }): Promise<any> {  // Returns protobuf wasm.RawTx
+    rawTx: any; // Protobuf wasm.RawTx object
+    notes: any[]; // Protobuf Note objects
+    spendConditions: any[]; // Protobuf SpendCondition objects
+  }): Promise<any> {
+    // Returns protobuf wasm.RawTx
     if (this.state.locked || !this.mnemonic) {
       throw new Error('Wallet is locked');
     }
@@ -1421,9 +1424,7 @@ export class Vault {
     const currentAccount = this.getCurrentAccount();
     const childIndex = currentAccount?.index ?? this.state.currentAccountIndex;
     const accountKey =
-      currentAccount?.derivation === 'master'
-        ? masterKey
-        : masterKey.deriveChild(childIndex);
+      currentAccount?.derivation === 'master' ? masterKey : masterKey.deriveChild(childIndex);
 
     if (!accountKey.privateKey) {
       if (currentAccount?.derivation !== 'master') {

@@ -6,11 +6,11 @@
 import {
   generateMnemonic as generateMnemonicScure,
   validateMnemonic as validateMnemonicScure,
-} from "@scure/bip39";
-import { wordlist } from "@scure/bip39/wordlists/english.js";
-import { deriveMasterKeyFromMnemonic } from "@nockbox/iris-wasm/iris_wasm.js";
-import { publicKeyToPKH } from "./address-encoding";
-import { ensureWasmInitialized as ensureWasmInit } from "./wasm-utils";
+} from '@scure/bip39';
+import { wordlist } from '@scure/bip39/wordlists/english.js';
+import { deriveMasterKeyFromMnemonic } from '@nockbox/iris-wasm/iris_wasm.js';
+import { publicKeyToPKH } from './address-encoding';
+import { ensureWasmInitialized as ensureWasmInit } from './wasm-utils';
 
 /**
  * Generates a BIP-39 mnemonic (24 words)
@@ -35,13 +35,11 @@ export function validateMnemonic(mnemonic: string): boolean {
  * @param mnemonic - The BIP-39 mnemonic phrase
  * @returns A Base58-encoded Nockchain v1 PKH address (~60 characters)
  */
-export async function deriveAddressFromMaster(
-  mnemonic: string
-): Promise<string> {
+export async function deriveAddressFromMaster(mnemonic: string): Promise<string> {
   await ensureWasmInit();
 
   // Derive master key from mnemonic
-  const masterKey = deriveMasterKeyFromMnemonic(mnemonic, "");
+  const masterKey = deriveMasterKeyFromMnemonic(mnemonic, '');
 
   // DEBUG: Also derive child 0 to compare
   const child0 = masterKey.deriveChild(0);
@@ -68,14 +66,11 @@ export async function deriveAddressFromMaster(
  * @param accountIndex - The account derivation index (default 0)
  * @returns A Base58-encoded Nockchain v1 PKH address (~60 characters)
  */
-export async function deriveAddress(
-  mnemonic: string,
-  accountIndex: number = 0
-): Promise<string> {
+export async function deriveAddress(mnemonic: string, accountIndex: number = 0): Promise<string> {
   await ensureWasmInit();
 
   // Derive master key from mnemonic
-  const masterKey = deriveMasterKeyFromMnemonic(mnemonic, "");
+  const masterKey = deriveMasterKeyFromMnemonic(mnemonic, '');
 
   // Derive child key at account index
   const childKey = masterKey.deriveChild(accountIndex);

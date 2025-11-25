@@ -41,13 +41,13 @@ function NoteItem({ note, type, textPrimary, textMuted, surface }: NoteItemProps
     );
   }
 
-  const assetsValue = versionData.assets?.value || "0";
+  const assetsValue = versionData.assets?.value || '0';
   const nicks = parseInt(assetsValue, 10);
   const nocks = nickToNock(nicks);
   const formattedNocks = formatNock(nocks);
 
-  const firstName = versionData.name?.first || "";
-  const lastName = versionData.name?.last || "";
+  const firstName = versionData.name?.first || '';
+  const lastName = versionData.name?.last || '';
   const fullName = `[ ${firstName} ${lastName} ]`;
 
   // Truncate name: first 4 chars of first name ... last 4 chars of last name
@@ -86,7 +86,7 @@ export function SignRawTxScreen() {
   const { pendingSignRawTxRequest, setPendingSignRawTxRequest, navigate, wallet } = useStore();
 
   if (!pendingSignRawTxRequest) {
-    navigate("home");
+    navigate('home');
     return null;
   }
 
@@ -117,7 +117,7 @@ export function SignRawTxScreen() {
       }, 0);
     }
   } catch (err) {
-    console.error("Error calculating fee:", err);
+    console.error('Error calculating fee:', err);
     // Default to 0 if error
   }
 
@@ -216,7 +216,10 @@ export function SignRawTxScreen() {
           <label className="text-xs block mb-1.5 font-medium" style={{ color: textMuted }}>
             Signing Account
           </label>
-          <div className="rounded-lg p-3 flex items-center gap-2.5" style={{ backgroundColor: surface }}>
+          <div
+            className="rounded-lg p-3 flex items-center gap-2.5"
+            style={{ backgroundColor: surface }}
+          >
             <AccountIcon
               styleId={wallet.currentAccount?.iconStyleId}
               color={wallet.currentAccount?.iconColor}
@@ -224,7 +227,7 @@ export function SignRawTxScreen() {
             />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium" style={{ color: textPrimary }}>
-                {wallet.currentAccount?.name || "Unknown"}
+                {wallet.currentAccount?.name || 'Unknown'}
               </p>
               <p className="text-xs font-mono mt-0.5" style={{ color: textMuted }}>
                 {truncateAddress(wallet.currentAccount?.address)}
@@ -235,7 +238,10 @@ export function SignRawTxScreen() {
       </div>
 
       {/* Footer Buttons */}
-      <div className="mt-auto px-4 py-2.5 shrink-0 flex gap-3" style={{ borderTop: `1px solid ${divider}` }}>
+      <div
+        className="mt-auto px-4 py-2.5 shrink-0 flex gap-3"
+        style={{ borderTop: `1px solid ${divider}` }}
+      >
         <button onClick={handleDecline} className="btn-secondary flex-1">
           Decline
         </button>

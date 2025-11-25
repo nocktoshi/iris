@@ -32,7 +32,10 @@ let manuallyLocked = false; // Track if user manually locked (don't auto-unlock)
 let approvalWindowId: number | null = null; // Track the approval popup window for reuse
 let isCreatingWindow = false; // Prevent race condition when creating window
 let currentRequestId: string | null = null; // Currently displayed request
-let requestQueue: Array<{ id: string; type: 'connect' | 'transaction' | 'sign-message' | 'sign-raw-tx' }> = []; // Queued requests
+let requestQueue: Array<{
+  id: string;
+  type: 'connect' | 'transaction' | 'sign-message' | 'sign-raw-tx';
+}> = []; // Queued requests
 
 /**
  * In-memory cache of approved origins
@@ -236,7 +239,9 @@ async function createApprovalPopup(
     hashPrefix = APPROVAL_CONSTANTS.SIGN_MESSAGE_HASH_PREFIX;
   }
   const popupUrl = chrome.runtime.getURL(`popup/index.html#${hashPrefix}${requestId}`);
-  console.log(`[Approval] Creating approval popup for request ${requestId} with URL ${popupUrl} and type ${type}`);
+  console.log(
+    `[Approval] Creating approval popup for request ${requestId} with URL ${popupUrl} and type ${type}`
+  );
 
   // Try to reuse existing approval window
   if (approvalWindowId !== null) {
@@ -487,7 +492,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         }
 
         const rawTxParams = payload.params?.[0];
-        if (!rawTxParams || !rawTxParams.rawTx || !rawTxParams.notes || !rawTxParams.spendConditions) {
+        if (
+          !rawTxParams ||
+          !rawTxParams.rawTx ||
+          !rawTxParams.notes ||
+          !rawTxParams.spendConditions
+        ) {
           sendResponse({ error: { code: -32602, message: 'Invalid params' } });
           return;
         }
@@ -905,7 +915,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             const signature = await vault.signRawTx({
               rawTx: signRawTxRequest.rawTx,
               notes: signRawTxRequest.notes,
-              spendConditions: signRawTxRequest.spendConditions
+              spendConditions: signRawTxRequest.spendConditions,
             });
             approveSignRawTxPending.sendResponse(signature);
             cancelPendingRequest(approveSignRawTxId);
@@ -913,7 +923,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             sendResponse({ success: true });
           } catch (err) {
             console.error('Failed to sign raw transaction:', err);
-            const errorMessage = err instanceof Error ? err.message : 'Failed to sign raw transaction';
+            const errorMessage =
+              err instanceof Error ? err.message : 'Failed to sign raw transaction';
             cancelPendingRequest(approveSignRawTxId, 4001, errorMessage);
             processNextRequest();
             sendResponse({ error: errorMessage });

@@ -45,9 +45,10 @@ export function SendSubmittedScreen() {
   // Calculate USD value based on amount and current price
   const amountInNock = lastTransaction?.amount || 0;
   const usdValue = amountInNock * priceUsd;
-  const sentUsdValue = usdValue > 0
-    ? `$${usdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    : '$0.00';
+  const sentUsdValue =
+    usdValue > 0
+      ? `$${usdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : '$0.00';
 
   return (
     <div

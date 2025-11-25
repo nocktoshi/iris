@@ -4,12 +4,7 @@
 
 import type { Transaction, NockchainEvent, EventListener, InjectedNockchain } from './types.js';
 import { TransactionBuilder } from './transaction.js';
-import {
-  WalletNotInstalledError,
-  UserRejectedError,
-  RpcError,
-  NoAccountError,
-} from './errors.js';
+import { WalletNotInstalledError, UserRejectedError, RpcError, NoAccountError } from './errors.js';
 import { PROVIDER_METHODS } from './constants.js';
 
 /**
@@ -372,7 +367,7 @@ export class NockchainProvider {
   private emit<T = unknown>(event: NockchainEvent, data: T): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
-      listeners.forEach((listener) => {
+      listeners.forEach(listener => {
         try {
           listener(data);
         } catch (error) {

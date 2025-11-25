@@ -15,7 +15,12 @@
 import { useEffect } from 'react';
 import { send } from '../utils/messaging';
 import { INTERNAL_METHODS, APPROVAL_CONSTANTS } from '../../shared/constants';
-import type { TransactionRequest, SignRequest, ConnectRequest, SignRawTxRequest } from '../../shared/types';
+import type {
+  TransactionRequest,
+  SignRequest,
+  ConnectRequest,
+  SignRawTxRequest,
+} from '../../shared/types';
 import type { Screen } from '../store';
 
 interface UseApprovalDetectionProps {
@@ -48,7 +53,7 @@ export function useApprovalDetection({
 
       // Fetch pending connect request from background
       send<ConnectRequest>(INTERNAL_METHODS.GET_PENDING_CONNECTION, [requestId])
-        .then((request) => {
+        .then(request => {
           if (request && !('error' in request)) {
             setPendingConnectRequest(request);
             // Only navigate if wallet is unlocked
@@ -63,7 +68,7 @@ export function useApprovalDetection({
 
       // Fetch pending transaction request from background
       send<TransactionRequest>(INTERNAL_METHODS.GET_PENDING_TRANSACTION, [requestId])
-        .then((request) => {
+        .then(request => {
           if (request && !('error' in request)) {
             setPendingTransactionRequest(request);
             // Only navigate if wallet is unlocked
@@ -78,7 +83,7 @@ export function useApprovalDetection({
 
       // Fetch pending sign request from background
       send<SignRequest>(INTERNAL_METHODS.GET_PENDING_SIGN_REQUEST, [requestId])
-        .then((request) => {
+        .then(request => {
           if (request && !('error' in request)) {
             setPendingSignRequest(request);
             // Only navigate if wallet is unlocked
@@ -93,7 +98,7 @@ export function useApprovalDetection({
 
       // Fetch pending sign request from background
       send<SignRawTxRequest>(INTERNAL_METHODS.GET_PENDING_SIGN_RAW_TX_REQUEST, [requestId])
-        .then((request) => {
+        .then(request => {
           if (request && !('error' in request)) {
             setPendingSignRawTxRequest(request);
             // Only navigate if wallet is unlocked
@@ -104,5 +109,12 @@ export function useApprovalDetection({
         })
         .catch(console.error);
     }
-  }, [walletAddress, walletLocked, setPendingConnectRequest, setPendingTransactionRequest, setPendingSignRequest, navigate]);
+  }, [
+    walletAddress,
+    walletLocked,
+    setPendingConnectRequest,
+    setPendingTransactionRequest,
+    setPendingSignRequest,
+    navigate,
+  ]);
 }

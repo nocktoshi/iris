@@ -82,9 +82,7 @@ export function SendScreen() {
     if (!isNaN(feeNum) && feeNum >= 0) {
       // Validate against minimum fee if we have one
       if (minimumFee !== null && feeNum < minimumFee) {
-        setFeeWarning(
-          `Fee too low. Minimum required: ${minimumFee.toFixed(2)} NOCK`
-        );
+        setFeeWarning(`Fee too low. Minimum required: ${minimumFee.toFixed(2)} NOCK`);
         // Still allow saving the fee, but show warning
       } else {
         setFeeWarning(''); // Clear warning if fee is valid
