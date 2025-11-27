@@ -702,7 +702,9 @@ export function HomeScreen() {
                     className="font-display font-medium text-[14px] leading-[18px] tracking-[0.14px] m-0"
                     style={{ color: 'var(--color-text-muted)' }}
                   >
-                    Make your first NOCK transaction.
+                    {displayBalance === 0
+                      ? 'Your wallet is ready to receive NOCK.'
+                      : 'Make your first NOCK transaction.'}
                   </p>
                 </div>
               </div>
