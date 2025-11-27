@@ -71,7 +71,9 @@ interface WalletState {
   currentAccount: Account | null;
   balance: number;
   availableBalance: number;
+  spendableBalance: number; // Sum of UTXOs that are available (not in_flight) - can be spent NOW
   accountBalances: Record<string, number>; // Map of address -> confirmed balance
+  accountSpendableBalances: Record<string, number>; // Map of address -> spendable balance (available UTXOs only)
   accountBalanceDetails: Record<string, AccountBalance>; // Map of address -> detailed balance
 }
 
@@ -162,7 +164,9 @@ export const useStore = create<AppStore>((set, get) => ({
     currentAccount: null,
     balance: 0,
     availableBalance: 0,
+    spendableBalance: 0,
     accountBalances: {},
+    accountSpendableBalances: {},
     accountBalanceDetails: {},
   },
 
@@ -279,7 +283,9 @@ export const useStore = create<AppStore>((set, get) => ({
         currentAccount: state.currentAccount || null,
         balance: confirmedBalance,
         availableBalance: confirmedBalance, // Will be recalculated after fetching transactions
+        spendableBalance: confirmedBalance, // Will be recalculated after fetching transactions
         accountBalances: cachedBalances, // Load all cached balances
+        accountSpendableBalances: cachedBalances, // Will be recalculated after fetching transactions
         accountBalanceDetails: {},
       };
 
@@ -373,11 +379,13 @@ export const useStore = create<AppStore>((set, get) => ({
 
       // Fetch UTXO store balance for ALL accounts
       const accountBalances: Record<string, number> = {};
+      const accountSpendableBalances: Record<string, number> = {};
 
       for (const account of accounts) {
         try {
           const storeBalance = await send<{
             available: number;
+            spendableNow: number;
             pendingOut: number;
             pendingChange: number;
             total: number;
@@ -387,20 +395,25 @@ export const useStore = create<AppStore>((set, get) => ({
 
           // Convert from nicks to NOCK for display
           const availableNock = storeBalance.available / NOCK_TO_NICKS;
+          const spendableNock = storeBalance.spendableNow / NOCK_TO_NICKS;
           accountBalances[account.address] = availableNock;
+          accountSpendableBalances[account.address] = spendableNock;
 
-          console.log(`[Store] 📊 ${account.name}: ${availableNock.toFixed(2)} NOCK available`);
+          console.log(`[Store] 📊 ${account.name}: ${availableNock.toFixed(2)} NOCK available, ${spendableNock.toFixed(2)} NOCK spendable now`);
         } catch (err) {
           console.warn(`[Store] Could not get balance for ${account.name}:`, err);
           // Keep previous balance if fetch fails
           accountBalances[account.address] = get().wallet.accountBalances[account.address] ?? 0;
+          accountSpendableBalances[account.address] = get().wallet.accountSpendableBalances[account.address] ?? 0;
         }
       }
 
       // Get current account's detailed balance
       const currentBalance = accountBalances[currentAccount.address] ?? 0;
+      const currentSpendable = accountSpendableBalances[currentAccount.address] ?? 0;
 
       console.log('[Store] ✅ All balances fetched:', accountBalances);
+      console.log('[Store] ✅ Spendable balances:', accountSpendableBalances);
 
       // Persist balances to chrome.storage.local for offline access
       try {
@@ -418,7 +431,9 @@ export const useStore = create<AppStore>((set, get) => ({
           ...get().wallet,
           balance: currentBalance,
           availableBalance: currentBalance,
+          spendableBalance: currentSpendable,
           accountBalances,
+          accountSpendableBalances,
         },
         isBalanceFetching: false,
       });

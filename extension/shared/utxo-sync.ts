@@ -285,6 +285,7 @@ export async function initializeAccountUTXOs(
  */
 export async function getAccountBalanceSummary(accountAddress: string): Promise<{
   available: number;
+  spendableNow: number;
   pendingOut: number;
   pendingChange: number;
   total: number;
@@ -307,8 +308,13 @@ export async function getAccountBalanceSummary(accountAddress: string): Promise<
   // Available balance includes expected change (Bitcoin wallet convention)
   const available = availableFromNotes + pendingChange;
 
+  // Spendable now: only UTXOs that are actually available (not in_flight)
+  // This is what can be used as inputs for a new transaction RIGHT NOW
+  const spendableNow = availableFromNotes;
+
   return {
     available,
+    spendableNow,
     pendingOut,
     pendingChange,
     total: availableFromNotes + pendingOut, // True total of all non-spent notes

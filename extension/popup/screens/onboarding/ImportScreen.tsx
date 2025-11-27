@@ -141,7 +141,9 @@ export function ImportScreen() {
         currentAccount: firstAccount,
         balance: 0,
         availableBalance: 0,
+        spendableBalance: 0,
         accountBalances: {},
+        accountSpendableBalances: {},
         accountBalanceDetails: {},
       });
       setOnboardingMnemonic(null);

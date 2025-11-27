@@ -69,7 +69,9 @@ export function CreateScreen() {
         currentAccount: firstAccount,
         balance: 0, // New wallet starts with 0 balance
         availableBalance: 0,
+        spendableBalance: 0,
         accountBalances: {},
+        accountSpendableBalances: {},
         accountBalanceDetails: {},
       });
       navigate('onboarding-backup');

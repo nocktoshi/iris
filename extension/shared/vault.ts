@@ -484,6 +484,7 @@ export class Vault {
    */
   async getBalanceFromStore(accountAddress: string): Promise<{
     available: number;
+    spendableNow: number;
     pendingOut: number;
     pendingChange: number;
     total: number;

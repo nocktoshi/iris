@@ -25,7 +25,7 @@ function formatInt(n: number) {
 
 export function SendScreen() {
   const { theme } = useTheme();
-  const { navigate, wallet, syncWallet, setLastTransaction } = useStore();
+  const { navigate, wallet, syncWallet, setLastTransaction, fetchBalance } = useStore();
 
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
   const [receiverAddress, setReceiverAddress] = useState('');
@@ -35,6 +35,7 @@ export function SendScreen() {
   const [isEditingFee, setIsEditingFee] = useState(false);
   const [editedFee, setEditedFee] = useState('');
   const [showFeeTooltip, setShowFeeTooltip] = useState(false);
+  const [showSpendableTooltip, setShowSpendableTooltip] = useState(false);
   const [error, setError] = useState('');
   const [isFeeManuallyEdited, setIsFeeManuallyEdited] = useState(false);
   const [isCalculatingFee, setIsCalculatingFee] = useState(false);
@@ -45,8 +46,13 @@ export function SendScreen() {
   // Get real accounts from vault (filter out hidden accounts)
   const accounts = (wallet.accounts || []).filter(acc => !acc.hidden);
   const currentAccount = wallet.currentAccount || accounts[0];
-  // Use available balance (which accounts for pending outflows)
-  const currentBalance = wallet.availableBalance;
+  // Use spendable balance (only UTXOs that are not in_flight - can be spent NOW)
+  const currentBalance = wallet.spendableBalance;
+
+  // Refresh balance when screen mounts to ensure spendable balance is accurate
+  useEffect(() => {
+    fetchBalance();
+  }, [fetchBalance]);
 
   // Account switching handler
   async function handleSwitchAccount(index: number) {
@@ -175,10 +181,10 @@ export function SendScreen() {
       return;
     }
 
-    // Check if user has sufficient balance for amount + fee
+    // Check if user has sufficient spendable balance for amount + fee
     const totalNeeded = amountNum + feeNum;
     if (totalNeeded > currentBalance) {
-      setError(`Insufficient balance`);
+      setError(`Insufficient spendable balance`);
       return;
     }
 
@@ -470,7 +476,7 @@ export function SendScreen() {
                       </div>
                     </div>
                     <div className="ml-auto text-[14px] leading-[18px] font-medium tracking-[0.01em] whitespace-nowrap">
-                      {formatInt(wallet.accountBalances?.[account.address] ?? 0)} NOCK
+                      {formatInt(wallet.accountSpendableBalances?.[account.address] ?? 0)} NOCK
                     </div>
                   </button>
                 );
@@ -502,10 +508,44 @@ export function SendScreen() {
         <div className="w-full h-px" style={{ backgroundColor: 'var(--color-surface-700)' }} />
         <div className="flex items-center gap-2">
           <div
-            className="text-[12px] leading-4 font-medium tracking-[0.02em]"
+            className="text-[12px] leading-4 font-medium tracking-[0.02em] flex items-center gap-1"
             style={{ color: 'var(--color-text-muted)' }}
           >
-            Balance: {formatInt(currentBalance)} NOCK
+            Spendable Balance: {formatInt(currentBalance)} NOCK
+            <div
+              className="relative inline-block"
+              onMouseEnter={() => setShowSpendableTooltip(true)}
+              onMouseLeave={() => setShowSpendableTooltip(false)}
+            >
+              <img
+                src={InfoIcon}
+                alt="Spendable balance information"
+                className="w-3.5 h-3.5 cursor-help"
+              />
+
+              {showSpendableTooltip && (
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 z-50">
+                  <div
+                    className="rounded-lg px-3 py-2.5 text-[12px] leading-4 font-medium tracking-[0.02em] shadow-lg"
+                    style={{
+                      backgroundColor: 'var(--color-surface-800)',
+                      color: 'var(--color-text-muted)',
+                      border: '1px solid var(--color-surface-700)',
+                    }}
+                  >
+                    Excludes UTXOs locked in pending transactions.
+                    <div
+                      className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0"
+                      style={{
+                        borderLeft: '6px solid transparent',
+                        borderRight: '6px solid transparent',
+                        borderTop: '6px solid var(--color-surface-800)',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <button
             onClick={handleMaxAmount}
