@@ -971,7 +971,10 @@ export class Vault {
    */
   async estimateMaxSendAmount(
     to: string
-  ): Promise<{ maxAmount: number; fee: number; totalAvailable: number; utxoCount: number } | { error: string }> {
+  ): Promise<
+    | { maxAmount: number; fee: number; totalAvailable: number; utxoCount: number }
+    | { error: string }
+  > {
     if (this.state.locked || !this.mnemonic) {
       return { error: ERROR_CODES.LOCKED };
     }
@@ -1062,7 +1065,8 @@ export class Vault {
     } catch (error) {
       console.error('[Vault] Max send estimation failed:', error);
       return {
-        error: 'Max send estimation failed: ' + (error instanceof Error ? error.message : String(error)),
+        error:
+          'Max send estimation failed: ' + (error instanceof Error ? error.message : String(error)),
       };
     }
   }
@@ -1070,7 +1074,6 @@ export class Vault {
   /**
    * Send a transaction to the network
    * This is the high-level API for sending NOCK to a recipient
-   * TODO: Clean up logs
    *
    * @param to - Recipient PKH address (base58-encoded digest string)
    * @param amount - Amount in nicks

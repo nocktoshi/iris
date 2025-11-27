@@ -40,8 +40,7 @@
 
   /* Font Families */
   --font-serif: 'Lora', Georgia, serif;
-  --font-sans:
-    'Inter', system-ui, -apple-system, sans-serif; /* TODO: Replace with Raveo Display when available */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 
   /* Font Sizes */
   --font-size-xs: 0.75rem; /* 12px */
