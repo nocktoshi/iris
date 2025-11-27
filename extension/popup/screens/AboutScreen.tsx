@@ -21,7 +21,7 @@ export function AboutScreen() {
   }
 
   function handleVisitWebsite() {
-    window.open('https://nockbox.org', '_blank');
+    window.open('https://iriswallet.io', '_blank');
   }
 
   function handleFAQ() {
