@@ -37,11 +37,12 @@ export function SendScreen() {
   const [showFeeTooltip, setShowFeeTooltip] = useState(false);
   const [showSpendableTooltip, setShowSpendableTooltip] = useState(false);
   const [error, setError] = useState('');
+  const [errorType, setErrorType] = useState<'fee_too_low' | 'general' | null>(null);
   const [isFeeManuallyEdited, setIsFeeManuallyEdited] = useState(false);
   const [isCalculatingFee, setIsCalculatingFee] = useState(false);
   const [minimumFee, setMinimumFee] = useState<number | null>(null); // Minimum fee from WASM calculation
-  const [feeWarning, setFeeWarning] = useState(''); // Warning if fee is too low
   const [isSendingMax, setIsSendingMax] = useState(false); // Track if user is sending entire balance
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false); // Track balance refresh after account switch
 
   // Get real accounts from vault (filter out hidden accounts)
   const accounts = (wallet.accounts || []).filter(acc => !acc.hidden);
@@ -56,22 +57,30 @@ export function SendScreen() {
 
   // Account switching handler
   async function handleSwitchAccount(index: number) {
-    const result = await send<{ ok?: boolean; account?: Account; error?: string }>(
-      INTERNAL_METHODS.SWITCH_ACCOUNT,
-      [index]
-    );
-
-    if (result?.ok && result.account) {
-      const updatedWallet = {
-        ...wallet,
-        currentAccount: result.account,
-        address: result.account.address,
-        balance: wallet.accountBalances?.[result.account.address] ?? 0,
-      };
-      syncWallet(updatedWallet);
-    }
-
+    setIsLoadingBalance(true);
     setWalletDropdownOpen(false);
+
+    try {
+      const result = await send<{ ok?: boolean; account?: Account; error?: string }>(
+        INTERNAL_METHODS.SWITCH_ACCOUNT,
+        [index]
+      );
+
+      if (result?.ok && result.account) {
+        const updatedWallet = {
+          ...wallet,
+          currentAccount: result.account,
+          address: result.account.address,
+          balance: wallet.accountBalances?.[result.account.address] ?? 0,
+          spendableBalance: wallet.accountSpendableBalances?.[result.account.address] ?? 0,
+        };
+        syncWallet(updatedWallet);
+        // Refresh balance to ensure spendable balance is accurate for new account
+        await fetchBalance();
+      }
+    } finally {
+      setIsLoadingBalance(false);
+    }
   }
 
   async function handleMaxAmount() {
@@ -111,6 +120,7 @@ export function SendScreen() {
       if (result?.error) {
         console.error('[SendScreen] Max estimation error:', result.error);
         setError(result.error);
+        setErrorType('general');
         setIsSendingMax(false);
         return;
       }
@@ -127,7 +137,8 @@ export function SendScreen() {
         setEditedFee(feeNock.toString());
         setMinimumFee(feeNock);
         setIsFeeManuallyEdited(true); // Lock fee for max send
-        setFeeWarning('');
+        setError('');
+        setErrorType(null);
 
         console.log('[SendScreen] Max send calculated:', {
           maxAmount: maxAmountNock,
@@ -166,10 +177,12 @@ export function SendScreen() {
     if (!isNaN(feeNum) && feeNum >= 0) {
       // Validate against minimum fee if we have one
       if (minimumFee !== null && feeNum < minimumFee) {
-        setFeeWarning('fee_too_low'); // Just a flag - UI handles the message
+        setError('Fee too low.');
+        setErrorType('fee_too_low');
         // Still allow saving the fee, but show warning
       } else {
-        setFeeWarning(''); // Clear warning if fee is valid
+        setError('');
+        setErrorType(null);
       }
       setFee(editedFee);
       setIsFeeManuallyEdited(true); // Mark as manually edited - stops auto-updates
@@ -210,12 +223,6 @@ export function SendScreen() {
     // Validation
     if (!receiverAddress.trim()) {
       setError('Please enter a receiver address');
-      return;
-    }
-
-    // Check for self-send
-    if (receiverAddress.trim() === currentAccount?.address) {
-      setError('Address cannot be your own');
       return;
     }
 
@@ -395,11 +402,13 @@ export function SendScreen() {
           setFee(feeNock.toString());
           setEditedFee(feeNock.toString());
           setMinimumFee(feeNock); // Store as minimum required fee
-          setFeeWarning(''); // Clear any previous warnings
+          setError('');
+          setErrorType(null);
           console.log('[SendScreen] Fee calculated:', feeNock, 'NOCK');
         } else if (result?.error) {
           console.error('[SendScreen] Fee estimation error from vault:', result.error);
-          setFeeWarning(result.error);
+          setError(result.error);
+          setErrorType('general');
         } else {
           console.warn('[SendScreen] Fee estimation returned no fee or error:', result);
         }
@@ -581,7 +590,15 @@ export function SendScreen() {
             className="text-[12px] leading-4 font-medium tracking-[0.02em] flex items-center gap-1"
             style={{ color: 'var(--color-text-muted)' }}
           >
-            Spendable Balance: {formatInt(currentBalance)} NOCK
+            Spendable Balance:{' '}
+            {isLoadingBalance ? (
+              <span
+                className="inline-block w-16 h-3 rounded animate-pulse ml-1"
+                style={{ backgroundColor: 'var(--color-surface-700)' }}
+              />
+            ) : (
+              `${formatInt(currentBalance)} NOCK`
+            )}
             <div
               className="relative inline-block"
               onMouseEnter={() => setShowSpendableTooltip(true)}
@@ -760,37 +777,32 @@ export function SendScreen() {
             )}
           </div>
 
-          {/* Fee warning - show if user set fee below minimum */}
-          {feeWarning && (
+          {/* Error display - below fee section */}
+          {error && (
             <div
-              className="px-3 py-2 text-[13px] leading-[18px] font-medium rounded-lg mt-2 flex items-center justify-between"
+              className="px-3 py-2 text-[13px] leading-[18px] font-medium rounded-lg flex items-center justify-between mt-2"
               style={{
                 backgroundColor: 'var(--color-red-light)',
                 color: 'var(--color-red)',
               }}
             >
-              {feeWarning === 'fee_too_low' ? (
-                <>
-                  <span>Fee too low.</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (minimumFee !== null) {
-                        const feeStr = minimumFee.toString();
-                        setFee(feeStr);
-                        setEditedFee(feeStr);
-                        setFeeWarning('');
-                        setIsFeeManuallyEdited(false); // Allow auto-updates again
-                      }
-                    }}
-                    className="underline hover:opacity-70 transition-opacity"
-                    style={{ color: 'var(--color-red)' }}
-                  >
-                    Reset
-                  </button>
-                </>
-              ) : (
-                <span>{feeWarning}</span>
+              <span>{error}</span>
+              {errorType === 'fee_too_low' && minimumFee !== null && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const feeStr = minimumFee.toString();
+                    setFee(feeStr);
+                    setEditedFee(feeStr);
+                    setError('');
+                    setErrorType(null);
+                    setIsFeeManuallyEdited(false); // Allow auto-updates again
+                  }}
+                  className="underline hover:opacity-70 transition-opacity"
+                  style={{ color: 'var(--color-red)' }}
+                >
+                  Reset
+                </button>
               )}
             </div>
           )}
@@ -799,40 +811,27 @@ export function SendScreen() {
 
       {/* Actions */}
       <div
-        className="flex flex-col gap-2 p-3 mt-auto"
+        className="flex gap-3 p-3 mt-auto"
         style={{ borderTop: '1px solid var(--color-divider)' }}
       >
-        {error && (
-          <div
-            className="px-3 py-2 text-[13px] leading-[18px] font-medium rounded-lg"
-            style={{
-              backgroundColor: 'var(--color-red-light)',
-              color: 'var(--color-red)',
-            }}
-          >
-            {error}
-          </div>
-        )}
-        <div className="flex gap-3">
-          <button
-            className="flex-1 rounded-lg px-5 py-3.5 text-[14px] leading-[18px] font-medium transition"
-            style={{ backgroundColor: 'var(--color-surface-800)' }}
-            onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--color-surface-700)')}
-            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'var(--color-surface-800)')}
-            onClick={handleCancel}
-          >
-            Cancel
-          </button>
-          <button
-            className="flex-1 rounded-lg px-5 py-3.5 text-[14px] leading-[18px] font-medium transition"
-            style={{ backgroundColor: 'var(--color-primary)', color: '#000' }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
-            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-            onClick={handleContinue}
-          >
-            Continue
-          </button>
-        </div>
+        <button
+          className="flex-1 rounded-lg px-5 py-3.5 text-[14px] leading-[18px] font-medium transition"
+          style={{ backgroundColor: 'var(--color-surface-800)' }}
+          onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--color-surface-700)')}
+          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'var(--color-surface-800)')}
+          onClick={handleCancel}
+        >
+          Cancel
+        </button>
+        <button
+          className="flex-1 rounded-lg px-5 py-3.5 text-[14px] leading-[18px] font-medium transition"
+          style={{ backgroundColor: 'var(--color-primary)', color: '#000' }}
+          onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
+          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+          onClick={handleContinue}
+        >
+          Continue
+        </button>
       </div>
     </div>
   );
