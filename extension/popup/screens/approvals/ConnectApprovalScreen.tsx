@@ -1,6 +1,6 @@
 import { useStore } from '../../store';
-import { ChevronLeftIcon } from '../../components/icons/ChevronLeftIcon';
 import { AccountIcon } from '../../components/AccountIcon';
+import { SiteIcon } from '../../components/SiteIcon';
 import { truncateAddress } from '../../utils/format';
 import { send } from '../../utils/messaging';
 import { INTERNAL_METHODS } from '../../../shared/constants';
@@ -39,91 +39,90 @@ export function ConnectApprovalScreen() {
   const green = 'var(--color-green)';
 
   return (
-    <div className="w-[357px] h-screen flex flex-col" style={{ backgroundColor: bg }}>
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-2.5 shrink-0">
-        <button onClick={handleReject} style={{ color: textPrimary }}>
-          <ChevronLeftIcon />
-        </button>
-        <h2 className="text-xl font-semibold" style={{ color: textPrimary }}>
-          Connect Request
-        </h2>
-      </div>
-
-      {/* Content */}
-      <div className="px-4 pb-2">
-        {/* Site Icon & Info */}
-        <div className="text-center mb-4">
-          <div
-            className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-3"
-            style={{ backgroundColor: surface }}
-          >
-            <span className="text-2xl font-bold" style={{ color: textPrimary }}>
-              {domain.charAt(0).toUpperCase()}
-            </span>
-          </div>
-          <h3 className="text-lg font-semibold mb-1" style={{ color: textPrimary }}>
-            {domain}
-          </h3>
-          <p className="text-xs break-all px-4" style={{ color: textMuted }}>
-            {origin}
-          </p>
-        </div>
-
-        {/* Permissions */}
-        <div className="rounded-lg p-3 mb-3" style={{ backgroundColor: surface }}>
-          <p className="text-sm mb-2 font-medium" style={{ color: textPrimary }}>
-            Requesting permission to:
-          </p>
-          <div className="space-y-1.5">
-            <div className="flex items-start gap-2 text-sm" style={{ color: textPrimary }}>
-              <span style={{ color: green }}>✓</span>
-              <span>View your wallet address</span>
-            </div>
-            <div className="flex items-start gap-2 text-sm" style={{ color: textPrimary }}>
-              <span style={{ color: green }}>✓</span>
-              <span>Request transaction approvals</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Account */}
-        <div>
-          <label className="text-xs block mb-1.5 font-medium" style={{ color: textMuted }}>
-            Connecting Account
-          </label>
-          <div
-            className="rounded-lg p-3 flex items-center gap-2.5"
-            style={{ backgroundColor: surface }}
-          >
-            <AccountIcon
-              styleId={wallet.currentAccount?.iconStyleId}
-              color={wallet.currentAccount?.iconColor}
-              className="w-8 h-8 shrink-0"
-            />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium" style={{ color: textPrimary }}>
-                {wallet.currentAccount?.name || 'Unknown'}
-              </p>
-              <p className="text-xs font-mono mt-0.5" style={{ color: textMuted }}>
-                {truncateAddress(wallet.currentAccount?.address)}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer Buttons */}
+    <div className="h-screen flex items-center justify-center" style={{ backgroundColor: bg }}>
       <div
-        className="mt-auto px-4 py-2.5 shrink-0 flex gap-3"
-        style={{ borderTop: `1px solid ${divider}` }}
+        className="w-full h-full flex flex-col"
+        style={{ backgroundColor: bg, maxWidth: '357px', maxHeight: '600px' }}
       >
-        <button onClick={handleReject} className="btn-secondary flex-1">
-          Cancel
-        </button>
-        <button onClick={handleConnect} className="btn-primary flex-1">
-          Connect
-        </button>
+        {/* Header */}
+        <div className="flex items-center justify-center px-4 py-4 shrink-0">
+          <h2 className="text-xl font-semibold" style={{ color: textPrimary }}>
+            Connect Request
+          </h2>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="px-4 pb-2">
+            {/* Site Icon & Info */}
+            <div className="text-center mb-4">
+              <div className="mb-3">
+                <SiteIcon origin={origin} domain={domain} size="lg" showSSL={true} />
+              </div>
+              <h3 className="text-lg font-semibold mb-1" style={{ color: textPrimary }}>
+                {domain}
+              </h3>
+              <p className="text-xs break-all px-4" style={{ color: textMuted }}>
+                {origin}
+              </p>
+            </div>
+
+            {/* Permissions */}
+            <div className="rounded-lg p-3 mb-3" style={{ backgroundColor: surface }}>
+              <p className="text-sm mb-2 font-medium" style={{ color: textPrimary }}>
+                Requesting permission to:
+              </p>
+              <div className="space-y-1.5">
+                <div className="flex items-start gap-2 text-sm" style={{ color: textPrimary }}>
+                  <span style={{ color: green }}>✓</span>
+                  <span>View your wallet address</span>
+                </div>
+                <div className="flex items-start gap-2 text-sm" style={{ color: textPrimary }}>
+                  <span style={{ color: green }}>✓</span>
+                  <span>Request transaction approvals</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Account */}
+            <div>
+              <label className="text-xs block mb-1.5 font-medium" style={{ color: textMuted }}>
+                Connecting Account
+              </label>
+              <div
+                className="rounded-lg p-3 flex items-center gap-2.5"
+                style={{ backgroundColor: surface }}
+              >
+                <AccountIcon
+                  styleId={wallet.currentAccount?.iconStyleId}
+                  color={wallet.currentAccount?.iconColor}
+                  className="w-8 h-8 shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium" style={{ color: textPrimary }}>
+                    {wallet.currentAccount?.name || 'Unknown'}
+                  </p>
+                  <p className="text-xs font-mono mt-0.5" style={{ color: textMuted }}>
+                    {truncateAddress(wallet.currentAccount?.address)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Buttons */}
+        <div
+          className="px-4 py-2.5 shrink-0 flex gap-3"
+          style={{ borderTop: `1px solid ${divider}` }}
+        >
+          <button onClick={handleReject} className="btn-secondary flex-1">
+            Cancel
+          </button>
+          <button onClick={handleConnect} className="btn-primary flex-1">
+            Connect
+          </button>
+        </div>
       </div>
     </div>
   );
