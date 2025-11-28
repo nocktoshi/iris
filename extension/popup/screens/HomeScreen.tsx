@@ -715,7 +715,7 @@ export function HomeScreen() {
                     {group.items.map((t, i) => (
                       <button
                         key={i}
-                        className="w-full flex items-start gap-3 py-3 rounded-lg px-2 -mx-2"
+                        className="w-full flex items-start gap-3 py-3 rounded-lg px-0 -mx-0 overflow-hidden"
                         onClick={() => {
                           setSelectedTransaction(t.originalTx);
                           navigate('tx-details');
@@ -737,15 +737,15 @@ export function HomeScreen() {
                             />
                           )}
                         </div>
-                        <div className="flex-1 text-left">
+                        <div className="flex-1 min-w-0 text-left">
                           <div
-                            className="text-[14px] font-medium"
+                            className="text-[14px] font-medium truncate"
                             style={{ color: 'var(--color-text-primary)' }}
                           >
                             {t.type === 'received' ? 'Received' : 'Sent'}
                           </div>
                           <div
-                            className="text-[12px] flex items-center gap-1.5 w-40"
+                            className="text-[12px] flex items-center gap-1.5 truncate"
                             style={{ color: 'var(--color-text-muted)' }}
                           >
                             {t.status === 'pending' && (
@@ -760,10 +760,10 @@ export function HomeScreen() {
                                 <span>·</span>
                               </>
                             )}
-                            <span>{t.from}</span>
+                            <span className="truncate">{t.from}</span>
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right shrink-0 pr-0">
                           <div
                             className="text-[14px] font-medium whitespace-nowrap"
                             style={{
