@@ -383,7 +383,7 @@ export function ImportScreen() {
                 }}
               >
                 This password encrypts your wallet on this device. Choose something strong but
-                memorable. Your private keys never leave your browser. 
+                memorable. Your private keys never leave your browser.
               </p>
             </div>
 

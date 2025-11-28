@@ -42,11 +42,15 @@ export class NockchainProvider {
       throw new Error('NockchainProvider can only be used in a browser environment');
     }
 
+    // Verify Iris extension is installed and authentic
+    if (!NockchainProvider.isInstalled()) {
+      throw new WalletNotInstalledError();
+    }
+
     const injected = window.nockchain;
 
-    // Verify Iris extension is installed and authentic
-    // The isIris brand prevents other extensions from hijacking window.nockchain
-    if (!injected || injected.isIris !== true) {
+    // TODO: remove this duplicate check
+    if (!injected) {
       throw new WalletNotInstalledError();
     }
 
@@ -382,6 +386,7 @@ export class NockchainProvider {
    * @returns true if the extension is installed
    */
   static isInstalled(): boolean {
-    return typeof window !== 'undefined' && !!window.nockchain?.isIris;
+    // TODO: Support other providers
+    return typeof window !== 'undefined' && window.nockchain?.provider === 'iris';
   }
 }

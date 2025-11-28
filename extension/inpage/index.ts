@@ -5,20 +5,18 @@
  * NOTE: This file runs in the MAIN world and cannot use any imports or Chrome APIs
  */
 
+import { InjectedNockchain, RpcRequest } from '@nockbox/iris-sdk';
+import { version } from '../../package.json';
+
 // Inline constant to avoid imports
 const MESSAGE_TARGET = 'IRIS';
 
-interface RequestArgs {
-  method: string;
-  params?: unknown[];
-}
-
-class NockProvider {
+class NockProvider implements InjectedNockchain {
   /**
    * Make a request to the wallet
    * @param args - Request arguments with method and params
    */
-  request(args: RequestArgs): Promise<unknown> {
+  request<T = unknown>(args: RpcRequest): Promise<T> {
     const id = Math.random().toString(36).slice(2);
 
     // Post message to content script
@@ -33,7 +31,7 @@ class NockProvider {
 
     // Wait for response with timeout
     return new Promise((resolve, reject) => {
-      let timeoutId: number;
+      let timeoutId: number | undefined;
 
       const handler = (evt: MessageEvent) => {
         const data = evt.data;
@@ -41,7 +39,9 @@ class NockProvider {
         // Check if this is our response (must have a reply field, not just the request)
         if (data?.target === MESSAGE_TARGET && data.id === id && data.reply !== undefined) {
           window.removeEventListener('message', handler);
-          clearTimeout(timeoutId);
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+          }
 
           if (data.reply?.error) {
             reject(new Error(data.reply.error));
@@ -51,39 +51,26 @@ class NockProvider {
         }
       };
 
-      // Timeout after 30 seconds
-      timeoutId = window.setTimeout(() => {
-        window.removeEventListener('message', handler);
-        reject(
-          new Error(
-            'Extension is not responding.' +
-              'If you just reloaded the extension, you need to refresh this page.'
-          )
-        );
-      }, 30000);
-
+      if (args.timeout) {
+        timeoutId = window.setTimeout(() => {
+          window.removeEventListener('message', handler);
+          reject(
+            new Error(
+              'Extension is not responding.' +
+                'If you just reloaded the extension, you need to refresh this page.'
+            )
+          );
+        }, args.timeout);
+      }
       window.addEventListener('message', handler);
     });
-  }
-
-  /**
-   * Event listener stub (for EIP-1193 compatibility)
-   */
-  on(_eventName: string, _listener: (...args: unknown[]) => void): void {
-    // TODO: Implement event system if needed
-  }
-
-  /**
-   * Remove event listener stub (for EIP-1193 compatibility)
-   */
-  removeListener(_eventName: string, _listener: (...args: unknown[]) => void): void {
-    // TODO: Implement event system if needed
   }
 }
 
 // Inject provider into window
 const provider = new NockProvider();
-(provider as any).isIris = true;
+(provider as InjectedNockchain).provider = 'iris';
+(provider as InjectedNockchain).version = version;
 (window as any).nockchain = provider;
 
 // Announce provider availability

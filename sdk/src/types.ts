@@ -22,6 +22,8 @@ export interface RpcRequest {
   method: string;
   /** Optional parameters for the method */
   params?: unknown[];
+  /** Optional timeout for the request */
+  timeout?: number;
 }
 
 /**
@@ -60,9 +62,14 @@ export interface InjectedNockchain {
   request<T = unknown>(request: RpcRequest): Promise<T>;
 
   /**
-   * Check if the provider is Iris
+   * Provider name (e.g., 'iris')
    */
-  isIris?: boolean;
+  provider?: string;
+
+  /**
+   * Provider version
+   */
+  version?: string;
 }
 
 /**
