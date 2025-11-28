@@ -180,9 +180,6 @@ export const STORAGE_KEYS = {
   /** Encrypted mnemonic data (iv, ct, salt) */
   ENCRYPTED_VAULT: 'enc',
 
-  /** Array of accounts with name, address, and derivation index */
-  ACCOUNTS: 'accounts',
-
   /** Current active account index */
   CURRENT_ACCOUNT_INDEX: 'currentAccountIndex',
 
@@ -212,13 +209,10 @@ export const STORAGE_KEYS = {
 
   /** Storage schema version for migrations */
   SCHEMA_VERSION: 'schemaVersion',
-
-  /** Last transaction sync timestamp per account */
-  LAST_TX_SYNC: 'lastTxSync',
 } as const;
 
 /** Current storage schema version - increment when making breaking changes */
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 1;
 
 /**
  * Chrome Alarm Names - Named alarms for scheduled tasks
@@ -239,8 +233,8 @@ export const MESSAGE_TARGETS = {
 /**
  * Configuration - Default settings
  */
-/** Default auto-lock timeout in minutes */
-export const AUTOLOCK_MINUTES = 15;
+/** Default auto-lock timeout in minutes (0 = never) */
+export const AUTOLOCK_MINUTES = 0;
 
 /** Default RPC endpoint URL */
 export const RPC_ENDPOINT = 'https://rpc.nockbox.org';
@@ -359,15 +353,3 @@ export const APPROVAL_CONSTANTS = {
   /** Hash prefix for sign raw transaction approval requests */
   SIGN_RAW_TX_HASH_PREFIX: 'sign-raw-tx-approval-',
 } as const;
-
-/**
- * Blockchain Constants - Transaction confirmation and block time settings
- */
-/** Average block time in milliseconds (~10 minutes) */
-export const BLOCK_TIME_MS = 600_000;
-
-/** Number of confirmations required for a transaction to be considered fully confirmed */
-export const REQUIRED_CONFIRMATIONS = 6;
-
-/** Number of confirmations after which we stop actively monitoring (save resources) */
-export const MAX_MONITORED_CONFIRMATIONS = 10;
