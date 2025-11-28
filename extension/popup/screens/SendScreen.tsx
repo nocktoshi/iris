@@ -55,6 +55,16 @@ export function SendScreen() {
     setIsLoadingBalance(true);
     setWalletDropdownOpen(false);
 
+    // Clear amount and fee fields when switching accounts
+    setAmount('');
+    setFee('');
+    setEditedFee('');
+    setMinimumFee(null);
+    setIsFeeManuallyEdited(false);
+    setIsSendingMax(false);
+    setError('');
+    setErrorType(null);
+
     try {
       const result = await send<{ ok?: boolean; account?: Account; error?: string }>(
         INTERNAL_METHODS.SWITCH_ACCOUNT,
