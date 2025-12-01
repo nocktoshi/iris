@@ -96,6 +96,18 @@ export function HomeScreen() {
     fetchWalletTransactions();
   }, [fetchWalletTransactions, wallet.currentAccount?.address]);
 
+  // Listen for storage changes to wallet transactions and auto-refresh UI
+  // This keeps the UI in sync when background sync updates transaction status
+  useEffect(() => {
+    const listener = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      if (changes[STORAGE_KEYS.WALLET_TX_STORE]) {
+        fetchWalletTransactions();
+      }
+    };
+    chrome.storage.onChanged.addListener(listener);
+    return () => chrome.storage.onChanged.removeListener(listener);
+  }, [fetchWalletTransactions]);
+
   // Check RPC connection status on mount and after balance fetching completes
   // (RPC calls update the status in background, so re-check after they finish)
   useEffect(() => {
