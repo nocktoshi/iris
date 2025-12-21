@@ -1378,38 +1378,6 @@ export class Vault {
     return new Uint8Array(bits);
   }
 
-  async getV0Candidates(): Promise<
-    Array<{ label: 'master' | 'child0' | 'hard0'; addressB58: string; pkhDigest: string }>
-  > {
-    if (this.state.locked || !this.v0Seedphrase) {
-      throw new Error('Wallet is locked or no v0 seedphrase stored');
-    }
-
-    await initWasmModules();
-
-    const seed = await this.pbkdf2SeedSha512(this.v0Seedphrase, this.v0Passphrase ?? '');
-    const masterKey = wasm.deriveMasterKey(seed);
-    const child0 = masterKey.deriveChild(0);
-    const hard0 = masterKey.deriveChild(1 << 31);
-
-    try {
-      const rows = [
-        { label: 'master' as const, key: masterKey },
-        { label: 'child0' as const, key: child0 },
-        { label: 'hard0' as const, key: hard0 },
-      ];
-      return rows.map(r => ({
-        label: r.label,
-        addressB58: base58.encode(new Uint8Array(r.key.publicKey)),
-        pkhDigest: wasm.hashPublicKey(new Uint8Array(r.key.publicKey)),
-      }));
-    } finally {
-      hard0.free();
-      child0.free();
-      masterKey.free();
-    }
-  }
-
   async setV0Seedphrase(params: {
     seedphrase: string;
     passphrase?: string;
