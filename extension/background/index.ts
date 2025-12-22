@@ -6,6 +6,7 @@
 
 import { Vault } from '../shared/vault';
 import { isNockAddress } from '../shared/validators';
+import { ensureWasmInitialized } from '../shared/wasm-utils';
 import {
   PROVIDER_METHODS,
   INTERNAL_METHODS,
@@ -31,6 +32,9 @@ function isRecord(x: unknown): x is Record<string, unknown> {
 }
 
 const vault = new Vault();
+// Ensure WASM is initialized once per service worker context.
+// Some background flows (message routing, tx handling) require WASM to be ready.
+const wasmInitPromise = ensureWasmInitialized();
 let lastActivity = Date.now();
 let autoLockMinutes = AUTOLOCK_MINUTES;
 let manuallyLocked = false; // Track if user manually locked (don't auto-unlock)
@@ -241,6 +245,9 @@ interface PendingRequest {
 }
 
 const pendingRequests = new Map<string, PendingRequest>();
+// v0 migration provider methods (string-literal; not yet in published iris-sdk)
+const MIGRATE_V0_GET_STATUS = 'nock_migrateV0GetStatus';
+const MIGRATE_V0_SIGN_RAW_TX = 'nock_migrateV0SignRawTx';
 
 /**
  * Type guard to check if a request is a ConnectRequest
@@ -428,8 +435,10 @@ async function emitWalletEvent(eventType: string, data: unknown) {
   }
 }
 
-// Initialize auto-lock setting, load approved origins, vault state, connection monitoring, and schedule alarms
+// Initialize auto-lock setting, load approved origins, vault state, connection monitoring, and schedule alarms.
+// IMPORTANT: this promise is awaited by message and alarm handlers to prevent race conditions on SW start.
 const initPromise = (async () => {
+  await wasmInitPromise;
   const stored = (await chrome.storage.local.get([
     STORAGE_KEYS.AUTO_LOCK_MINUTES,
     STORAGE_KEYS.LAST_ACTIVITY,
@@ -590,6 +599,66 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
         // Response will be sent when user approves/rejects
         return;
+
+      case MIGRATE_V0_GET_STATUS: {
+        const origin = _sender.url || _sender.origin || '';
+        if (!isOriginApproved(origin)) {
+          sendResponse({ error: { code: 4100, message: 'Unauthorized origin' } });
+          return;
+        }
+        if (vault.isLocked()) {
+          sendResponse({ error: ERROR_CODES.LOCKED });
+          return;
+        }
+        sendResponse({ ok: true, hasV0Seedphrase: vault.hasV0Seedphrase() });
+        return;
+      }
+
+      case MIGRATE_V0_SIGN_RAW_TX: {
+        const origin = _sender.url || _sender.origin || '';
+        if (!isOriginApproved(origin)) {
+          sendResponse({ error: { code: 4100, message: 'Unauthorized origin' } });
+          return;
+        }
+        if (vault.isLocked()) {
+          sendResponse({ error: ERROR_CODES.LOCKED });
+          return;
+        }
+        const rawTxParams = payload.params?.[0];
+        if (
+          !rawTxParams ||
+          !rawTxParams.rawTx ||
+          !rawTxParams.notes ||
+          !rawTxParams.spendConditions
+        ) {
+          sendResponse({ error: { code: -32602, message: 'Invalid params' } });
+          return;
+        }
+        const derivation = rawTxParams.derivation || 'master';
+        const outputs = await vault.computeOutputs(rawTxParams.rawTx);
+
+        const signRawTxId = crypto.randomUUID();
+        const signRawTxRequest: any = {
+          id: signRawTxId,
+          origin,
+          rawTx: rawTxParams.rawTx,
+          notes: rawTxParams.notes,
+          spendConditions: rawTxParams.spendConditions,
+          outputs: outputs,
+          timestamp: Date.now(),
+          signWith: 'v0',
+          v0Derivation: derivation,
+        };
+
+        pendingRequests.set(signRawTxId, {
+          request: signRawTxRequest,
+          sendResponse,
+          origin: signRawTxRequest.origin,
+        });
+
+        await createApprovalPopup(signRawTxId, 'sign-raw-tx');
+        return;
+      }
 
       case PROVIDER_METHODS.SIGN_RAW_TX:
         // Validate origin
@@ -845,6 +914,40 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         }
         return;
 
+      case INTERNAL_METHODS.HAS_V0_SEEDPHRASE:
+        if (vault.isLocked()) {
+          sendResponse({ error: ERROR_CODES.LOCKED });
+          return;
+        }
+        sendResponse({ ok: true, has: vault.hasV0Seedphrase() });
+        return;
+
+      case INTERNAL_METHODS.SET_V0_SEEDPHRASE: {
+        const seedphrase = payload.params?.[0];
+        const passphrase = payload.params?.[1];
+        if (!seedphrase) {
+          sendResponse({ error: { code: -32602, message: 'Invalid params' } });
+          return;
+        }
+        if (vault.isLocked()) {
+          sendResponse({ error: ERROR_CODES.LOCKED });
+          return;
+        }
+        const res = await vault.setV0Seedphrase({ seedphrase, passphrase });
+        sendResponse(res);
+        return;
+      }
+
+      case INTERNAL_METHODS.CLEAR_V0_SEEDPHRASE: {
+        if (vault.isLocked()) {
+          sendResponse({ error: ERROR_CODES.LOCKED });
+          return;
+        }
+        const res = await vault.clearV0Seedphrase();
+        sendResponse(res);
+        return;
+      }
+
       case INTERNAL_METHODS.GET_MNEMONIC:
         // params: password (required for verification)
         sendResponse(await vault.getMnemonic(payload.params?.[0]));
@@ -1040,11 +1143,19 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           }
 
           try {
-            const signature = await vault.signRawTx({
-              rawTx: signRawTxRequest.rawTx,
-              notes: signRawTxRequest.notes,
-              spendConditions: signRawTxRequest.spendConditions,
-            });
+            const signature =
+              signRawTxRequest.signWith === 'v0'
+                ? await vault.signRawTxV0({
+                    rawTx: signRawTxRequest.rawTx,
+                    notes: signRawTxRequest.notes,
+                    spendConditions: signRawTxRequest.spendConditions,
+                    derivation: signRawTxRequest.v0Derivation || 'master',
+                  })
+                : await vault.signRawTx({
+                    rawTx: signRawTxRequest.rawTx,
+                    notes: signRawTxRequest.notes,
+                    spendConditions: signRawTxRequest.spendConditions,
+                  });
             approveSignRawTxPending.sendResponse(signature);
             cancelPendingRequest(approveSignRawTxId);
             processNextRequest();

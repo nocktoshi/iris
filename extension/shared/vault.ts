@@ -148,6 +148,11 @@ interface EncryptedVault {
 interface VaultPayload {
   mnemonic: string;
   accounts: Account[];
+  // Optional v0 migration seedphrase (encrypted at rest).
+  v0Migration?: {
+    seedphrase: string;
+    passphrase?: string; // BIP39 passphrase (“25th word”)
+  } | null;
 }
 
 interface VaultState {
@@ -167,6 +172,10 @@ export class Vault {
 
   /** Decrypted mnemonic (only stored in memory while unlocked) */
   private mnemonic: string | null = null;
+
+  /** Decrypted v0 migration seedphrase (only stored in memory while unlocked) */
+  private v0Seedphrase: string | null = null;
+  private v0Passphrase: string | null = null;
 
   /** Derived encryption key (only stored in memory while unlocked, cleared on lock) */
   private encryptionKey: CryptoKey | null = null;
@@ -262,6 +271,7 @@ export class Vault {
     const vaultPayload: VaultPayload = {
       mnemonic: words,
       accounts: [firstAccount],
+      v0Migration: null,
     };
     const payloadJson = JSON.stringify(vaultPayload);
     const { iv, ct } = await encryptGCM(key, new TextEncoder().encode(payloadJson));
@@ -351,6 +361,8 @@ export class Vault {
 
       // Store decrypted data in memory (only after successful decrypt)
       this.mnemonic = mnemonic;
+      this.v0Seedphrase = payload.v0Migration?.seedphrase ?? null;
+      this.v0Passphrase = payload.v0Migration?.passphrase ?? null;
       this.encryptionKey = key; // Cache key for account operations
 
       this.state = {
@@ -407,6 +419,8 @@ export class Vault {
     const accounts = payload.accounts;
 
     this.mnemonic = payload.mnemonic;
+    this.v0Seedphrase = payload.v0Migration?.seedphrase ?? null;
+    this.v0Passphrase = payload.v0Migration?.passphrase ?? null;
     this.encryptionKey = key;
 
     this.state = {
@@ -446,6 +460,9 @@ export class Vault {
     const vaultPayload: VaultPayload = {
       mnemonic: this.mnemonic,
       accounts: this.state.accounts,
+      v0Migration: this.v0Seedphrase
+        ? { seedphrase: this.v0Seedphrase, passphrase: this.v0Passphrase ?? undefined }
+        : null,
     };
     const payloadJson = JSON.stringify(vaultPayload);
     const { iv, ct } = await encryptGCM(this.encryptionKey, new TextEncoder().encode(payloadJson));
@@ -478,6 +495,8 @@ export class Vault {
     // Clear sensitive data from memory for security
     this.state.accounts = []; // Clear accounts to enforce "no addresses while locked"
     this.mnemonic = null;
+    this.v0Seedphrase = null;
+    this.v0Passphrase = null;
     this.encryptionKey = null;
     return { ok: true };
   }
@@ -497,6 +516,8 @@ export class Vault {
       enc: null,
     };
     this.mnemonic = null;
+    this.v0Seedphrase = null;
+    this.v0Passphrase = null;
     this.encryptionKey = null; // Clear encryption key as well
 
     return { ok: true };
@@ -1394,6 +1415,101 @@ export class Vault {
    * @param params - Transaction parameters with raw tx jam and notes/spend conditions
    * @returns Hex-encoded signed transaction jam
    */
+  // ============================================================================
+  // v0 Migration seedphrase storage (encrypted in vault)
+  // ============================================================================
+
+  hasV0Seedphrase(): boolean {
+    return Boolean(this.v0Seedphrase);
+  }
+
+  private async pbkdf2SeedSha512(seedphrase: string, passphrase: string): Promise<Uint8Array> {
+    const normalized = seedphrase.trim().split(/\s+/).join(' ');
+    const salt = `mnemonic${passphrase ?? ''}`;
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw',
+      enc.encode(normalized),
+      { name: 'PBKDF2' },
+      false,
+      ['deriveBits']
+    );
+    const bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', hash: 'SHA-512', salt: enc.encode(salt), iterations: 2048 },
+      keyMaterial,
+      64 * 8
+    );
+    return new Uint8Array(bits);
+  }
+
+  async setV0Seedphrase(params: {
+    seedphrase: string;
+    passphrase?: string;
+  }): Promise<{ ok: true } | { error: string }> {
+    if (this.state.locked || !this.encryptionKey || !this.state.enc || !this.mnemonic) {
+      return { error: ERROR_CODES.LOCKED };
+    }
+
+    this.v0Seedphrase = params.seedphrase.trim();
+    this.v0Passphrase = params.passphrase?.trim() || null;
+
+    // Re-encrypt the vault payload using the in-memory key (same pattern as account updates).
+    await this.saveAccountsToVault();
+    return { ok: true };
+  }
+
+  async clearV0Seedphrase(): Promise<{ ok: true } | { error: string }> {
+    if (this.state.locked || !this.encryptionKey || !this.state.enc || !this.mnemonic) {
+      return { error: ERROR_CODES.LOCKED };
+    }
+
+    this.v0Seedphrase = null;
+    this.v0Passphrase = null;
+
+    await this.saveAccountsToVault();
+    return { ok: true };
+  }
+
+  async signRawTxV0(params: {
+    rawTx: any;
+    notes: any[];
+    spendConditions: any[];
+    derivation: 'master' | 'child0' | 'hard0';
+  }): Promise<any> {
+    if (this.state.locked || !this.v0Seedphrase) {
+      throw new Error('Wallet is locked or no v0 seedphrase stored');
+    }
+
+    await initWasmModules();
+
+    const seed = await this.pbkdf2SeedSha512(this.v0Seedphrase, this.v0Passphrase ?? '');
+    const masterKey = wasm.deriveMasterKey(seed);
+    let key: any = masterKey;
+    if (params.derivation === 'child0') key = masterKey.deriveChild(0);
+    if (params.derivation === 'hard0') key = masterKey.deriveChild(0x80000000);
+
+    if (!key.privateKey) {
+      if (key !== masterKey) key.free();
+      masterKey.free();
+      throw new Error('Cannot sign: no private key available');
+    }
+
+    try {
+      const irisRawTx = wasm.RawTx.fromProtobuf(params.rawTx);
+      const irisNotes = params.notes.map(n => wasm.Note.fromProtobuf(n));
+      const irisSpendConditions = params.spendConditions.map(sc =>
+        wasm.SpendCondition.fromProtobuf(sc)
+      );
+      const builder = wasm.TxBuilder.fromTx(irisRawTx, irisNotes, irisSpendConditions);
+      builder.sign(key.privateKey);
+      const signedTx = builder.build();
+      return signedTx.toRawTx().toProtobuf();
+    } finally {
+      if (key !== masterKey) key.free();
+      masterKey.free();
+    }
+  }
+
   async signRawTx(params: {
     rawTx: any; // Protobuf wasm.RawTx object
     notes: any[]; // Protobuf Note objects
