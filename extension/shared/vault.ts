@@ -1497,7 +1497,9 @@ export class Vault {
     try {
       const irisRawTx = wasm.RawTx.fromProtobuf(params.rawTx);
       const irisNotes = params.notes.map(n => wasm.Note.fromProtobuf(n));
-      const irisSpendConditions = params.spendConditions.map(sc => wasm.SpendCondition.fromProtobuf(sc));
+      const irisSpendConditions = params.spendConditions.map(sc =>
+        wasm.SpendCondition.fromProtobuf(sc)
+      );
       const builder = wasm.TxBuilder.fromTx(irisRawTx, irisNotes, irisSpendConditions);
       builder.sign(key.privateKey);
       const signedTx = builder.build();

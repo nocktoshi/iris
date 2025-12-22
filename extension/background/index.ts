@@ -245,7 +245,6 @@ const pendingRequests = new Map<string, PendingRequest>();
 const MIGRATE_V0_GET_STATUS = 'nock_migrateV0GetStatus';
 const MIGRATE_V0_SIGN_RAW_TX = 'nock_migrateV0SignRawTx';
 
-
 /**
  * Type guard to check if a request is a ConnectRequest
  */
@@ -622,7 +621,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           return;
         }
         const rawTxParams = payload.params?.[0];
-        if (!rawTxParams || !rawTxParams.rawTx || !rawTxParams.notes || !rawTxParams.spendConditions) {
+        if (
+          !rawTxParams ||
+          !rawTxParams.rawTx ||
+          !rawTxParams.notes ||
+          !rawTxParams.spendConditions
+        ) {
           sendResponse({ error: { code: -32602, message: 'Invalid params' } });
           return;
         }
@@ -1135,18 +1139,19 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           }
 
           try {
-            const signature = signRawTxRequest.signWith === 'v0'
-              ? await vault.signRawTxV0({
-                  rawTx: signRawTxRequest.rawTx,
-                  notes: signRawTxRequest.notes,
-                  spendConditions: signRawTxRequest.spendConditions,
-                  derivation: signRawTxRequest.v0Derivation || 'master',
-                })
-              : await vault.signRawTx({
-                  rawTx: signRawTxRequest.rawTx,
-                  notes: signRawTxRequest.notes,
-                  spendConditions: signRawTxRequest.spendConditions,
-                });
+            const signature =
+              signRawTxRequest.signWith === 'v0'
+                ? await vault.signRawTxV0({
+                    rawTx: signRawTxRequest.rawTx,
+                    notes: signRawTxRequest.notes,
+                    spendConditions: signRawTxRequest.spendConditions,
+                    derivation: signRawTxRequest.v0Derivation || 'master',
+                  })
+                : await vault.signRawTx({
+                    rawTx: signRawTxRequest.rawTx,
+                    notes: signRawTxRequest.notes,
+                    spendConditions: signRawTxRequest.spendConditions,
+                  });
             approveSignRawTxPending.sendResponse(signature);
             cancelPendingRequest(approveSignRawTxId);
             processNextRequest();

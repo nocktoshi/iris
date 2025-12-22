@@ -81,7 +81,10 @@ export function V0MigrationScreen() {
     setError('');
     setStatus('');
     try {
-      const res = await send<{ ok?: boolean; error?: string }>(INTERNAL_METHODS.CLEAR_V0_SEEDPHRASE, []);
+      const res = await send<{ ok?: boolean; error?: string }>(
+        INTERNAL_METHODS.CLEAR_V0_SEEDPHRASE,
+        []
+      );
 
       if ((res as any)?.error) {
         const code = (res as any).error;
@@ -128,8 +131,12 @@ export function V0MigrationScreen() {
       <div className="flex flex-1 flex-col px-4 py-6 gap-4">
         <div className="flex flex-col items-center gap-2">
           <img src={IrisLogo96} alt="Iris" className="w-16 h-16" />
-          <p className="m-0 text-[13px] leading-[18px] tracking-[0.26px] text-center" style={{ color: 'var(--color-text-muted)' }}>
-            Store your legacy (v0) seedphrase in Iris so websites can migrate without ever seeing it.
+          <p
+            className="m-0 text-[13px] leading-[18px] tracking-[0.26px] text-center"
+            style={{ color: 'var(--color-text-muted)' }}
+          >
+            Store your legacy (v0) seedphrase in Iris so websites can migrate without ever seeing
+            it.
           </p>
         </div>
 
