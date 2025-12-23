@@ -1,7 +1,8 @@
 /**
- * Type declarations for WASM modules
- * TypeScript can't find the .d.ts files when importing .js extensions
- * with moduleResolution: "bundler", so we declare them here
+ * Type declarations for Rose WASM JS entrypoint.
+ *
+ * With `moduleResolution: "bundler"`, TypeScript can fail to associate the
+ * package-provided `.d.ts` with the `.js` entrypoint path, so we bridge it here.
  */
 
 /// <reference path="@nockchain/rose-wasm/rose_wasm.d.ts" />

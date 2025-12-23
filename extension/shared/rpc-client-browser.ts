@@ -3,10 +3,10 @@
  * Uses WASM-based tonic-web-wasm-client for proper bigint handling
  */
 
-import { GrpcClient } from '@nockbox/iris-wasm/iris_wasm.js';
+import { GrpcClient } from '@nockchain/rose-wasm/rose_wasm.js';
 import type { Note } from './types';
 import { base58 } from '@scure/base';
-import { ensureWasmInitialized } from './wasm-utils.js';
+import { initIrisSdkOnce } from './wasm-utils.js';
 import { RPC_ENDPOINT, INTERNAL_METHODS } from './constants.js';
 
 /**
@@ -47,7 +47,7 @@ export class NockchainBrowserRPCClient {
       return this.client;
     }
 
-    await ensureWasmInitialized();
+    await initIrisSdkOnce();
     this.client = new GrpcClient(this.endpoint);
     return this.client;
   }

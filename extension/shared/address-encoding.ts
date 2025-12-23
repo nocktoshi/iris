@@ -4,7 +4,7 @@
  */
 
 import { base58 } from '@scure/base';
-import { hashPublicKey } from '@nockbox/iris-wasm/iris_wasm.js';
+import { hashPublicKey } from '@nockchain/rose-wasm/rose_wasm.js';
 
 /**
  * Converts a public key to a Nockchain V1 PKH (Public Key Hash) address

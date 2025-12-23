@@ -5,7 +5,7 @@
  */
 
 // Import provider methods from SDK
-import { PROVIDER_METHODS } from '@nockbox/iris-sdk';
+import { PROVIDER_METHODS } from '@nockchain/sdk';
 
 /**
  * Internal Extension Methods - Called by popup UI and other extension components

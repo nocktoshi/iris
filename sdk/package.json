@@ -1,7 +1,7 @@
 {
-  "name": "@nockbox/iris-sdk",
-  "version": "0.1.1",
-  "description": "TypeScript SDK for interacting with Iris wallet extension",
+  "name": "@nockchain/sdk",
+  "version": "0.1.4",
+  "description": "TypeScript SDK for interacting with Nockchain wallet extensions",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -9,12 +9,38 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./wasm": {
+      "types": "./dist/wasm.d.ts",
+      "import": "./dist/wasm.js"
+    },
+    "./hooks": {
+      "types": "./dist/hooks/index.d.ts",
+      "import": "./dist/hooks/index.js"
+    },
+    "./hooks/use-rose": {
+      "types": "./dist/hooks/use-rose.d.ts",
+      "import": "./dist/hooks/use-rose.js"
     }
   },
   "files": [
     "dist",
     "README.md"
   ],
+  "keywords": [
+    "nockchain",
+    "wallet",
+    "web3",
+    "blockchain",
+    "schnorr"
+  ],
+  "author": "Nockchain.net LLC",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nocktoshi/rose.git",
+    "directory": "sdk"
+  },
   "scripts": {
     "build": "tsc",
     "build-example": "npm run build && tsc --project examples/tsconfig.json && vite build --config vite.config.examples.ts",
@@ -25,27 +51,18 @@
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
-  "keywords": [
-    "nockchain",
-    "wallet",
-    "web3",
-    "blockchain",
-    "schnorr"
-  ],
-  "author": "NockBox inc.",
-  "license": "MIT",
-  "devDependencies": {
-    "typescript": "^5.5.3",
-    "vite": "^5.0.0",
-    "prettier": "^3.4.2"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/nockbox/iris.git",
-    "directory": "sdk"
-  },
   "dependencies": {
-    "@scure/base": "^2.0.0",
-    "@nockbox/iris-wasm": "^0.1.1"
+    "@nockchain/rose-wasm": "^0.1.4-nightly.11.1.2d67b54",
+    "@scure/base": "2.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.7",
+    "prettier": "3.7.4",
+    "react": "19.2.3",
+    "typescript": "5.9.3",
+    "vite": "7.3.0"
+  },
+  "peerDependencies": {
+    "react": ">=18"
   }
 }

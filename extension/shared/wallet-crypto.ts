@@ -8,9 +8,9 @@ import {
   validateMnemonic as validateMnemonicScure,
 } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english.js';
-import { deriveMasterKeyFromMnemonic } from '@nockbox/iris-wasm/iris_wasm.js';
+import { deriveMasterKeyFromMnemonic } from '@nockchain/rose-wasm/rose_wasm.js';
 import { publicKeyToPKH } from './address-encoding';
-import { ensureWasmInitialized as ensureWasmInit } from './wasm-utils';
+import { initIrisSdkOnce } from './wasm-utils';
 
 /**
  * Generates a BIP-39 mnemonic (24 words)
@@ -36,7 +36,7 @@ export function validateMnemonic(mnemonic: string): boolean {
  * @returns A Base58-encoded Nockchain v1 PKH address (~60 characters)
  */
 export async function deriveAddressFromMaster(mnemonic: string): Promise<string> {
-  await ensureWasmInit();
+  await initIrisSdkOnce();
 
   // Derive master key from mnemonic
   const masterKey = deriveMasterKeyFromMnemonic(mnemonic, '');
@@ -57,7 +57,7 @@ export async function deriveAddressFromMaster(mnemonic: string): Promise<string>
  * @returns A Base58-encoded Nockchain v1 PKH address (~60 characters)
  */
 export async function deriveAddress(mnemonic: string, accountIndex: number = 0): Promise<string> {
-  await ensureWasmInit();
+  await initIrisSdkOnce();
 
   // Derive master key from mnemonic
   const masterKey = deriveMasterKeyFromMnemonic(mnemonic, '');
