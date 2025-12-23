@@ -5,7 +5,7 @@
  * NOTE: This file runs in the MAIN world and cannot use any imports or Chrome APIs
  */
 
-import { InjectedNockchain, RpcRequest } from '@nockbox/iris-sdk';
+import { InjectedNockchain, RpcRequest } from '@nockchain/sdk';
 import { version } from '../../package.json';
 
 // Inline constant to avoid imports

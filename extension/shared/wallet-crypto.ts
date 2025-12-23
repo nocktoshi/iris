@@ -8,7 +8,7 @@ import {
   validateMnemonic as validateMnemonicScure,
 } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english.js';
-import { deriveMasterKeyFromMnemonic } from '@nockbox/iris-wasm/iris_wasm.js';
+import { deriveMasterKeyFromMnemonic } from '@nockchain/rose-wasm/rose_wasm.js';
 import { publicKeyToPKH } from './address-encoding';
 import { initIrisSdkOnce } from './wasm-utils';
 

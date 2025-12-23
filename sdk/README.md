@@ -1,24 +1,24 @@
-# `@nockbox/iris-sdk`
+# `@nockchain/sdk`
 
 TypeScript SDK for interacting with the **Iris** browser wallet extension (Nockchain).
 
 ## Install
 
 ```bash
-npm i @nockbox/iris-sdk
+npm i @nockchain/sdk
 ```
 
 ## What you get
 
 - **`NockchainProvider`**: connect to Iris and request signatures / transactions (EIP-1193-ish API).
 - **`TransactionBuilder`**: small fluent helper for constructing the simple “send transaction” payload.
-- **WASM**: use `@nockbox/iris-wasm` directly for `TxBuilder`, `GrpcClient`, etc.
+- **WASM**: use `@nockchain/rose-wasm` directly for `TxBuilder`, `GrpcClient`, etc.
 - **React Hook**: `useIris()` for one-time WASM init + gRPC client + provider wiring.
 
 ## Basic usage (provider)
 
 ```ts
-import { NockchainProvider } from '@nockbox/iris-sdk';
+import { NockchainProvider } from '@nockchain/sdk';
 
 const provider = new NockchainProvider();
 const { pkh, grpcEndpoint } = await provider.connect();
@@ -30,7 +30,7 @@ console.log(sig.signature, sig.publicKeyHex);
 ## Building a simple transaction payload
 
 ```ts
-import { NockchainProvider, TransactionBuilder } from '@nockbox/iris-sdk';
+import { NockchainProvider, TransactionBuilder } from '@nockchain/sdk';
 
 const provider = new NockchainProvider();
 await provider.connect();
@@ -41,7 +41,7 @@ const txId = await provider.sendTransaction(tx);
 
 ## WASM / raw transaction signing
 
-If you’re using `@nockbox/iris-wasm` types like `TxBuilder`, import them directly:
+If you’re using `@nockchain/rose-wasm` types like `TxBuilder`, import them directly:
 
 ```ts
 import {
@@ -52,8 +52,8 @@ import {
   GrpcClient,
   RawTx,
   Note,
-} from '@nockbox/iris-wasm/iris_wasm.js';
-import { NockchainProvider } from '@nockbox/iris-sdk';
+} from '@nockchain/rose-wasm/rose_wasm.js';
+import { NockchainProvider } from '@nockchain/sdk';
 ```
 
 See `sdk/examples/` for an end-to-end example of building + signing a raw transaction.
@@ -61,7 +61,7 @@ See `sdk/examples/` for an end-to-end example of building + signing a raw transa
 ## React: `useIris` hook
 
 ```tsx
-import { useIris } from '@nockbox/iris-sdk';
+import { useIris } from '@nockchain/sdk';
 
 export function App() {
   const { provider, rpcClient, status, error, isReady } = useIris({
@@ -85,4 +85,4 @@ Notes:
 
 This SDK is built with `tsc` and publishes **compiled output** from `sdk/dist/`.
 
-If you are iterating on `@nockbox/iris-wasm`, the recommended workflow is to publish it to a **local npm registry** (e.g. Verdaccio), then publish `@nockbox/iris-sdk` against that version, and finally consume Iris using normal semver dependencies (no `file:`).
+If you are iterating on `@nockchain/rose-wasm`, the recommended workflow is to publish it to a **local npm registry** (e.g. Verdaccio), then publish `@nockchain/sdk` against that version, and finally consume Iris using normal semver dependencies (no `file:`).

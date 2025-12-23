@@ -4,10 +4,10 @@
  * with moduleResolution: "bundler", so we declare them here
  */
 
-/// <reference path="@nockbox/iris-wasm/iris_wasm.d.ts" />
+/// <reference path="@nockchain/rose-wasm/rose_wasm.d.ts" />
 
-declare module '@nockbox/iris-wasm/iris_wasm.js' {
-  export * from '@nockbox/iris-wasm/iris_wasm';
-  import init from '@nockbox/iris-wasm/iris_wasm';
+declare module '@nockchain/rose-wasm/rose_wasm.js' {
+  export * from '@nockchain/rose-wasm/rose_wasm';
+  import init from '@nockchain/rose-wasm/rose_wasm';
   export default init;
 }

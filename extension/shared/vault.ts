@@ -19,7 +19,7 @@ import {
 } from './constants';
 import { Account } from './types';
 import { buildMultiNotePayment, type Note } from './transaction-builder';
-import * as wasm from '@nockbox/iris-wasm/iris_wasm.js';
+import * as wasm from '@nockchain/rose-wasm/rose_wasm.js';
 import { queryV1Balance } from './balance-query';
 import { createBrowserClient } from './rpc-client-browser';
 import type { Note as BalanceNote } from './types';

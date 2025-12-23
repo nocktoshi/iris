@@ -50,11 +50,11 @@ npm run build
 
 ## WASM Modules
 
-WASM binaries are **pre-built and included** in `@nockbox/iris-sdk`. No build required.
+WASM binaries are **pre-built and included** in `@nockchain/sdk`. No build required.
 
-## Local development: publishing `@nockbox/iris-wasm` / `@nockbox/iris-sdk` to a local npm registry
+## Local development: publishing `@nockchain/rose-wasm` / `@nockchain/sdk` to a local npm registry
 
-When you make changes to `@nockbox/iris-wasm`, **do not use** `file:` dependencies for Iris. Instead, publish to a **local npm registry** and consume via normal semver versions (so the repo can be checked in using npm-style deps).
+When you make changes to `@nockchain/rose-wasm`, **do not use** `file:` dependencies for Iris. Instead, publish to a **local npm registry** and consume via normal semver versions (so the repo can be checked in using npm-style deps).
 
 ### One-time setup (Verdaccio)
 
@@ -80,7 +80,7 @@ npm login --registry http://localhost:4873
 
 ### Publish workflow
 
-1. **Publish `@nockbox/iris-wasm`** from your local `iris-wasm` repo checkout:
+1. **Publish `@nockchain/rose-wasm`** from your local `iris-wasm` repo checkout:
 
 ```bash
 # in the iris-wasm package directory
@@ -88,13 +88,13 @@ npm version 0.1.3 --no-git-tag-version
 npm publish --registry http://localhost:4873
 ```
 
-2. **Bump + publish `@nockbox/iris-sdk`** (this repo’s `sdk/`):
+2. **Bump + publish `@nockchain/sdk`** (this repo’s `sdk/`):
 
 ```bash
 cd sdk
 # update sdk/package.json:
 # - "version": "0.1.2"
-# - "@nockbox/iris-wasm": "0.1.3"
+# - "@nockchain/rose-wasm": "0.1.3"
 npm run build
 npm publish --registry http://localhost:4873
 ```
@@ -104,14 +104,14 @@ npm publish --registry http://localhost:4873
 ```bash
 cd ..
 # update package.json:
-# - "@nockbox/iris-sdk": "0.1.2"
+# - "@nockchain/sdk": "0.1.2"
 npm install
 ```
 
 ### Verify what you’re using
 
 ```bash
-npm view @nockbox/iris-wasm version --registry http://localhost:4873
-npm view @nockbox/iris-sdk version --registry http://localhost:4873
-npm ls @nockbox/iris-sdk @nockbox/iris-wasm
+npm view @nockchain/rose-wasm version --registry http://localhost:4873
+npm view @nockchain/sdk version --registry http://localhost:4873
+npm ls @nockchain/sdk @nockchain/rose-wasm
 ```

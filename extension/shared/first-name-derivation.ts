@@ -6,7 +6,7 @@
  * the expected first-name for standard lock types (simple PKH and coinbase).
  */
 
-import * as wasm from '@nockbox/iris-wasm/iris_wasm.js';
+import * as wasm from '@nockchain/rose-wasm/rose_wasm.js';
 import { initIrisSdkOnce } from './wasm-utils.js';
 
 /**

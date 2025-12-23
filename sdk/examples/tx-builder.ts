@@ -1433,25 +1433,7 @@ function confirmAddLock() {
             return;
           }
 
-          // For now, if m=1 and 1 addr, use single.
-          // If m>1 or multiple addrs, we need multisig support in WASM or manual construction
-          // Assuming WASM has Pkh.new(m, addrs) or similar.
-          // Checking iris_wasm.d.ts...
-          // It seems Pkh.single(addr) is what we used.
-          // Let's assume for now we only support single if m=1 and len=1.
-          // Actually, let's try to find if there is a multisig constructor.
-          // If not, we might be limited. But user asked for it.
-          // Let's assume Pkh constructor takes (m, addrs) or similar if we look at the types.
-          // Based on previous knowledge, Pkh might be complex.
-          // Let's try to use Pkh.new(threshold, keys) if it exists, otherwise fallback/error.
 
-          // I will assume for this step that I can create a Pkh object.
-          // If I look at how `wasm.Pkh.single` works, it probably creates a Pkh with threshold 1.
-
-          // Let's try:
-          // const pkh = new wasm.Pkh(pkhConfig.m, pkhConfig.addrs);
-          // If that fails, I'll see in build.
-          // Actually, looking at previous code: `wasm.Pkh.single(state.walletPkh)`
 
           if (validAddrs.length === 1 && pkhConfig.m === 1) {
             const pkh = wasm.Pkh.single(validAddrs[0]);

@@ -19,14 +19,14 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@nockbox/iris-sdk': resolve(__dirname, 'src'),
+      '@nockchain/sdk': resolve(__dirname, 'src'),
     },
   },
   server: {
     port: 3000,
   },
   optimizeDeps: {
-    exclude: ['@nockbox/iris-wasm'],
+    exclude: ['@nockchain/rose-wasm'],
   },
   assetsInclude: ['**/*.wasm'],
 });

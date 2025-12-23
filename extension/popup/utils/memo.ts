@@ -11,12 +11,12 @@
  */
 
 import { base16, base64, base64url } from '@scure/base';
-import { Noun } from '@nockbox/iris-wasm/iris_wasm.js';
+import { Noun } from '@nockchain/rose-wasm/rose_wasm.js';
 import type {
   Note as WasmNote,
   NoteDataEntry as WasmNoteDataEntry,
   RawTx as WasmRawTx,
-} from '@nockbox/iris-wasm/iris_wasm.js';
+} from '@nockchain/rose-wasm/rose_wasm.js';
 
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null;
