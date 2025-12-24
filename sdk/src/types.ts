@@ -62,14 +62,9 @@ export interface InjectedNockchain {
   request<T = unknown>(request: RpcRequest): Promise<T>;
 
   /**
-   * Provider name (e.g., 'rose')
+   * Provider names and versions (e.g., 'rose', 'iris')
    */
-  provider?: string;
-
-  /**
-   * Provider version
-   */
-  version?: string;
+  providers?: { name: string; version: string }[];
 }
 
 /**

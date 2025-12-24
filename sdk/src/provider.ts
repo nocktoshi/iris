@@ -386,7 +386,11 @@ export class NockchainProvider {
    * @returns true if the extension is installed
    */
   static isInstalled(): boolean {
-    // TODO: Support other providers
-    return typeof window !== 'undefined' && window.nockchain?.provider === 'rose';
+    if (typeof window === 'undefined' || !window.nockchain?.providers) {
+      return false;
+    }
+    return window.nockchain.providers.some(
+      (provider: { name?: string }) => provider && provider.name === 'rose'
+    );
   }
 }

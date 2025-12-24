@@ -11,7 +11,10 @@ import { version } from '../../package.json';
 // Inline constant to avoid imports
 const MESSAGE_TARGET = 'ROSE';
 
-class NockProvider implements InjectedNockchain {
+class NockchainProvider implements InjectedNockchain {
+  name: string = 'rose';
+  version: string = version;
+
   /**
    * Make a request to the wallet
    * @param args - Request arguments with method and params
@@ -68,10 +71,16 @@ class NockProvider implements InjectedNockchain {
 }
 
 // Inject provider into window
-const provider = new NockProvider();
-(provider as InjectedNockchain).provider = 'rose';
-(provider as InjectedNockchain).version = version;
-(window as any).nockchain = provider;
+const provider = new NockchainProvider();
+const globalNockchain = (window as any).nockchain ?? {};
+globalNockchain.providers = Array.isArray(globalNockchain.providers)
+  ? globalNockchain.providers
+  : [];
+if (!globalNockchain.providers.some((p: { name: string }) => p.name === provider.name)) {
+  globalNockchain.providers.push(provider);
+}
+// Preserve existing global while registering this provider
+(window as any).nockchain = globalNockchain;
 
 // Announce provider availability
-window.dispatchEvent(new Event('nockchain#initialized'));
+window.dispatchEvent(new Event(`nockchain_${provider.name}#initialized`));
