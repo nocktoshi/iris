@@ -1,5 +1,5 @@
 /**
- * Onboarding Import Screen - Import wallet from mnemonic
+ * Onboarding Import Screen - Import V0 wallet from mnemonic
  */
 
 import { useState, useRef, useEffect } from 'react';
@@ -14,18 +14,23 @@ import lockIcon from '../../assets/lock-icon.svg';
 import { EyeIcon } from '../../components/icons/EyeIcon';
 import { EyeOffIcon } from '../../components/icons/EyeOffIcon';
 import { InfoIcon } from '../../components/icons/InfoIcon';
-import { importKeyfile, type Keyfile } from '../../../shared/keyfile';
 
-export function ImportScreen() {
-  const { navigate, syncWallet, onboardingMnemonic, setOnboardingMnemonic } = useStore();
+export function ImportScreenV0() {
+  const { navigate, wallet, syncWallet, onboardingMnemonicV0, setOnboardingMnemonicV0 } =
+    useStore();
+  const isOnboarding = !Boolean(wallet.currentAccount);
+  const [isImported, setIsImported] = useState<boolean | null>(null);
+  const [isClearingImport, setIsClearingImport] = useState(false);
 
   // Clear any stale mnemonic state on mount to ensure fresh start
   useEffect(() => {
-    if (onboardingMnemonic) {
-      setOnboardingMnemonic(null);
+    if (onboardingMnemonicV0) {
+      setOnboardingMnemonicV0(null);
     }
   }, []);
-  const [words, setWords] = useState<string[]>(Array(UI_CONSTANTS.MNEMONIC_WORD_COUNT).fill(''));
+  const [wordsV0, setWordsV0] = useState<string[]>(
+    Array(UI_CONSTANTS.MNEMONIC_WORD_COUNT).fill('')
+  );
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -35,15 +40,24 @@ export function ImportScreen() {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const firstInputRef = useAutoFocus<HTMLInputElement>();
 
-  // Keyfile import state
-  const [showKeyfileImport, setShowKeyfileImport] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Check existing v0 seed stored in vault when in v0 flow
+  useEffect(() => {
+    (async () => {
+      const res = await send<{ ok?: boolean; has?: boolean; error?: unknown }>(
+        INTERNAL_METHODS.HAS_V0_MNEMONIC,
+        []
+      );
+      if (res?.ok) {
+        setIsImported(Boolean(res.has));
+      }
+    })();
+  }, []);
 
   function handleWordChange(index: number, value: string) {
     const trimmedValue = value.trim().toLowerCase();
-    const newWords = [...words];
-    newWords[index] = trimmedValue;
-    setWords(newWords);
+    wordsV0[index] = trimmedValue;
+    setWordsV0(wordsV0);
+
     setError('');
 
     // Auto-advance to next field on space
@@ -63,15 +77,15 @@ export function ImportScreen() {
 
       if (pastedWords.length === UI_CONSTANTS.MNEMONIC_WORD_COUNT) {
         e.preventDefault();
-        setWords(pastedWords);
+        setWordsV0(pastedWords);
         setError('');
       }
     }
   }
 
-  function handleKeyDown(index: number, e: React.KeyboardEvent<HTMLInputElement>) {
+  async function handleKeyDown(index: number, e: React.KeyboardEvent<HTMLInputElement>) {
     // Backspace on empty field goes to previous
-    if (e.key === 'Backspace' && !words[index] && index > 0) {
+    if (e.key === 'Backspace' && !wordsV0[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
     // Enter advances to next field
@@ -81,81 +95,105 @@ export function ImportScreen() {
       if (nextIndex < UI_CONSTANTS.MNEMONIC_WORD_COUNT) {
         inputRefs.current[nextIndex]?.focus();
       } else {
-        handleContinue();
+        await handleContinue();
       }
     }
   }
 
-  function handleContinue() {
-    const mnemonic = words.join(' ').trim();
+  async function handleContinue() {
+    const mnemonicV0 = wordsV0.join(' ').trim();
+    if (isOnboarding) {
+      if (wordsV0.some(w => !w)) {
+        setError('Please enter all 24 words');
+        return;
+      }
 
-    if (words.some(w => !w)) {
-      setError('Please enter all 24 words');
-      return;
+      setOnboardingMnemonicV0(mnemonicV0);
+      setStep('password');
+    } else {
+      handleImport();
     }
-
-    // Store mnemonic and move to password setup
-    setOnboardingMnemonic(mnemonic);
-    setStep('password');
   }
-
   async function handleImport() {
     // Use stored mnemonic (set either by manual entry or keyfile import)
-    const mnemonic = onboardingMnemonic || words.join(' ').trim();
+    const mnemonicV0 = onboardingMnemonicV0 || wordsV0.join(' ').trim();
 
-    // Validate password
-    if (!password) {
-      setError('Please enter a password');
-      return;
-    }
+    let result:
+      | {
+          ok?: boolean;
+          address?: string;
+          mnemonic?: string;
+          error?: string;
+        }
+      | undefined;
 
-    if (password.length < UI_CONSTANTS.MIN_PASSWORD_LENGTH) {
-      setError(`Password must be at least ${UI_CONSTANTS.MIN_PASSWORD_LENGTH} characters`);
-      return;
-    }
+    // Onboarding flow - setup new wallet
+    if (isOnboarding) {
+      // Validate password
+      if (!password) {
+        setError('Please enter a password');
+        return;
+      }
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
+      if (password.length < UI_CONSTANTS.MIN_PASSWORD_LENGTH) {
+        setError(`Password must be at least ${UI_CONSTANTS.MIN_PASSWORD_LENGTH} characters`);
+        return;
+      }
 
-    // Import wallet (setup with existing mnemonic)
-    const result = await send<{
-      ok?: boolean;
-      address?: string;
-      mnemonic?: string;
-      error?: string;
-    }>(INTERNAL_METHODS.SETUP, [password, mnemonic, '']);
+      if (password !== confirmPassword) {
+        setError('Passwords do not match');
+        return;
+      }
 
-    if (result?.error) {
-      if (result.error === ERROR_CODES.INVALID_MNEMONIC) {
-        setError('Invalid secret phrase. Please check your words and try again.');
+      result = await send<{
+        ok?: boolean;
+        address?: string;
+        mnemonic?: string;
+        error?: string;
+      }>(INTERNAL_METHODS.SETUP, [password, '', mnemonicV0]);
+
+      if (result?.error) {
+        if (result.error === ERROR_CODES.INVALID_V0_MNEMONIC) {
+          setError('Invalid secret phrase. Please check your words and try again.');
+        } else {
+          setError(formatWalletError(result.error));
+        }
       } else {
-        setError(formatWalletError(result.error));
+        // Successfully imported - mark onboarding complete (user already has their seed)
+        await markOnboardingComplete();
+
+        const firstAccount = {
+          name: 'Wallet 1',
+          address: result.address || '',
+          index: 0,
+        };
+        syncWallet({
+          locked: false,
+          address: result.address || null,
+          accounts: [firstAccount],
+          currentAccount: firstAccount,
+          balance: 0,
+          availableBalance: 0,
+          spendableBalance: 0,
+          accountBalances: {},
+          accountSpendableBalances: {},
+          accountBalanceDetails: {},
+        });
+        setOnboardingMnemonicV0(null);
+        navigate('onboarding-import-success');
       }
     } else {
-      // Successfully imported - mark onboarding complete (user already has their seed)
-      await markOnboardingComplete();
+      // Import flow - import existing wallet
+      result = await send<{
+        ok?: boolean;
+        error?: string;
+      }>(INTERNAL_METHODS.SET_V0_MNEMONIC, [mnemonicV0]);
 
-      const firstAccount = {
-        name: 'Wallet 1',
-        address: result.address || '',
-        index: 0,
-      };
-      syncWallet({
-        locked: false,
-        address: result.address || null,
-        accounts: [firstAccount],
-        currentAccount: firstAccount,
-        balance: 0,
-        availableBalance: 0,
-        spendableBalance: 0,
-        accountBalances: {},
-        accountSpendableBalances: {},
-        accountBalanceDetails: {},
-      });
-      setOnboardingMnemonic(null);
-      navigate('onboarding-import-success');
+      if (result?.error) {
+        setError(formatWalletError(result.error));
+      } else {
+        navigate('onboarding-import-success');
+      }
     }
   }
 
@@ -163,52 +201,38 @@ export function ImportScreen() {
     if (step === 'password') {
       setStep('mnemonic');
     } else {
-      navigate('onboarding-start');
+      if (isOnboarding) {
+        navigate('onboarding-start');
+      } else {
+        navigate('home');
+      }
     }
   }
 
-  // Keyfile import handlers
-  function handleImportKeyfileClick() {
-    setShowKeyfileImport(true);
+  function handleClearV0Mnemonic() {
+    setOnboardingMnemonicV0(null);
+    setWordsV0(Array(UI_CONSTANTS.MNEMONIC_WORD_COUNT).fill(''));
     setError('');
   }
 
-  function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = e => {
-      try {
-        const keyfile = JSON.parse(e.target?.result as string) as Keyfile;
-
-        // Import keyfile to get mnemonic
-        const mnemonic = importKeyfile(keyfile);
-
-        // Validate mnemonic has correct number of words
-        const importedWords = mnemonic.trim().split(/\s+/);
-        if (importedWords.length !== UI_CONSTANTS.MNEMONIC_WORD_COUNT) {
-          setError('Invalid keyfile: expected 24 words');
-          return;
-        }
-
-        // Skip word display - go directly to password setup
-        setOnboardingMnemonic(mnemonic);
-        setShowKeyfileImport(false);
-        setStep('password');
-        setError('');
-      } catch (error) {
-        setError(error instanceof Error ? error.message : 'Invalid keyfile format');
+  async function handleClearStoredV0() {
+    setIsClearingImport(true);
+    setError('');
+    try {
+      const res = await send<{ ok?: boolean; error?: unknown }>(
+        INTERNAL_METHODS.CLEAR_V0_MNEMONIC,
+        []
+      );
+      if ((res as any)?.error) {
+        setError(formatWalletError((res as any).error));
+      } else {
+        setIsImported(false);
+        handleClearV0Mnemonic();
       }
-    };
-    reader.readAsText(file);
-  }
-
-  function handleCancelKeyfileImport() {
-    setShowKeyfileImport(false);
-    setError('');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    } catch {
+      setError('Failed to remove stored v0 seedphrase');
+    } finally {
+      setIsClearingImport(false);
     }
   }
 
@@ -419,7 +443,7 @@ export function ImportScreen() {
                   letterSpacing: '0.01em',
                 }}
               >
-                Import wallet
+                Import v0 wallet
               </button>
             </div>
           </div>
@@ -456,7 +480,7 @@ export function ImportScreen() {
             letterSpacing: '0.01em',
           }}
         >
-          Import wallet
+          {isImported === true ? 'Upgrade v0 Wallet' : 'Import v0 Wallet'}
         </h2>
         <div className="w-8" />
       </div>
@@ -465,121 +489,166 @@ export function ImportScreen() {
       <div className="h-[536px] flex flex-col">
         <div className="flex-1 overflow-y-auto no-scrollbar">
           <div className="px-4 py-2 flex flex-col gap-6">
-            {/* Icon and instructions */}
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-10 h-10">
-                <img src={lockIcon} alt="" className="w-full h-full" />
-              </div>
-              <p
-                className="font-sans font-medium text-center text-[var(--color-text-primary)]"
-                style={{
-                  fontSize: 'var(--font-size-base)',
-                  lineHeight: 'var(--line-height-snug)',
-                  letterSpacing: '0.01em',
-                }}
-              >
-                Enter your 24-word secret phrase.
-                <br />
-                Paste into first field to auto-fill all words.
-              </p>
-            </div>
-
-            {/* V1 wallet warning */}
-            <div
-              className="flex items-start gap-2 p-3 rounded-lg"
-              style={{
-                backgroundColor: 'var(--color-surface-800)',
-                border: '1px solid var(--color-surface-700)',
-              }}
-            >
-              <InfoIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p
-                  className="font-sans text-[var(--color-text-muted)]"
+            {isImported === true && (
+              <>
+                {/* migration hint box */}
+                <div
+                  className="flex items-start gap-2 p-3 rounded-lg"
                   style={{
-                    fontSize: 'var(--font-size-sm)',
-                    lineHeight: 'var(--line-height-snug)',
-                    letterSpacing: '0.01em',
+                    backgroundColor: 'var(--color-surface-800)',
+                    border: '1px solid var(--color-surface-700)',
                   }}
                 >
-                  Only V1 wallets are supported. If you use a secret phrase from V0, this will
-                  create a new V1 wallet.{' '}
-                  <a
-                    href="https://iriswallet.io/faq"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline hover:opacity-70"
-                    style={{ color: 'var(--color-primary)' }}
-                  >
-                    Learn more
-                  </a>
-                </p>
-              </div>
-            </div>
-
-            {/* Import keyfile link */}
-            <button
-              onClick={handleImportKeyfileClick}
-              className="font-sans font-medium text-center text-[var(--color-text-primary)] underline hover:opacity-70 transition-opacity"
-              style={{
-                fontSize: 'var(--font-size-base)',
-                lineHeight: 'var(--line-height-snug)',
-                letterSpacing: '0.01em',
-              }}
-            >
-              Or import from keyfile
-            </button>
-
-            {/* 24-word input grid */}
-            <div className="flex flex-col gap-2 w-full pb-4">
-              {Array.from({ length: 12 }).map((_, rowIndex) => (
-                <div key={rowIndex} className="flex gap-2 w-full">
-                  {[0, 1].map(col => {
-                    const index = rowIndex * 2 + col;
-                    return (
-                      <div
-                        key={col}
-                        className="flex-1 min-w-0 bg-[var(--color-bg)] border border-[var(--color-surface-700)] rounded-lg p-2 flex items-center gap-2.5 h-11"
+                  <InfoIcon className="w-5 h-5 flex-shrink-0 mt-0.5 m-auto" />
+                  <div className="flex-1">
+                    <p
+                      className="font-sans text-center text-[var(--color-text-muted)]"
+                      style={{
+                        fontSize: 'var(--font-size-sm)',
+                        lineHeight: 'var(--line-height-snug)',
+                        letterSpacing: '0.01em',
+                      }}
+                    >
+                      Hint: Upgrade your v0 notes with the upgrade tool.
+                      <br />
+                      <a
+                        href="https://nocknames.com/upgrade"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:opacity-70 text-[#37f] font-bold"
                       >
-                        <span
-                          className="bg-[var(--color-surface-700)] rounded w-7 h-7 flex items-center justify-center font-sans font-medium text-[var(--color-text-primary)] flex-shrink-0"
-                          style={{
-                            fontSize: 'var(--font-size-base)',
-                            lineHeight: 'var(--line-height-snug)',
-                            letterSpacing: '0.01em',
-                          }}
-                        >
-                          {index + 1}
-                        </span>
-                        <input
-                          ref={el => {
-                            inputRefs.current[index] = el;
-                            if (index === 0) {
-                              // @ts-ignore - Assign to auto-focus ref
-                              firstInputRef.current = el;
-                            }
-                          }}
-                          type="text"
-                          value={words[index]}
-                          onChange={e => handleWordChange(index, e.target.value)}
-                          onKeyDown={e => handleKeyDown(index, e)}
-                          onPaste={e => handlePaste(index, e)}
-                          placeholder="word"
-                          autoComplete="off"
-                          spellCheck="false"
-                          className="flex-1 min-w-0 bg-transparent font-sans font-medium text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] outline-none"
-                          style={{
-                            fontSize: 'var(--font-size-base)',
-                            lineHeight: 'var(--line-height-snug)',
-                            letterSpacing: '0.01em',
-                          }}
-                        />
-                      </div>
-                    );
-                  })}
+                        nocknames.com/upgrade
+                      </a>
+                    </p>
+                  </div>
                 </div>
-              ))}
-            </div>
+                <div
+                  className="flex flex-col gap-2 p-3 rounded-lg border"
+                  style={{
+                    borderColor: 'var(--color-surface-700)',
+                    backgroundColor: 'var(--color-surface-900)',
+                  }}
+                >
+                  <p
+                    className="font-sans text-[var(--color-text-muted)] text-sm leading-[18px] m-0 text-center"
+                    style={{ letterSpacing: '0.01em' }}
+                  >
+                    A v0 seedphrase is already stored in your vault. Delete it to enter a new one.
+                  </p>
+                  <button
+                    onClick={handleClearStoredV0}
+                    className="btn-secondary h-10 rounded-lg font-sans font-medium text-sm transition-opacity hover:opacity-90"
+                    disabled={isClearingImport}
+                  >
+                    {isClearingImport ? 'Deleting…' : 'Delete v0 seed and enter a new one'}
+                  </button>
+                </div>
+              </>
+            )}
+            {isImported !== true && (
+              <>
+                {/* Icon and instructions */}
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-10 h-10">
+                    <img src={lockIcon} alt="" className="w-full h-full" />
+                  </div>
+                  <p
+                    className="font-sans font-medium text-center text-[var(--color-text-primary)]"
+                    style={{
+                      fontSize: 'var(--font-size-base)',
+                      lineHeight: 'var(--line-height-snug)',
+                      letterSpacing: '0.01em',
+                    }}
+                  >
+                    Enter your 24-word secret phrase.
+                    <br />
+                    Paste into first field to auto-fill all words.
+                  </p>
+                </div>
+                {/* migration hint box */}
+                <div
+                  className="flex items-start gap-2 p-3 rounded-lg"
+                  style={{
+                    backgroundColor: 'var(--color-surface-800)',
+                    border: '1px solid var(--color-surface-700)',
+                  }}
+                >
+                  <InfoIcon className="w-5 h-5 flex-shrink-0 mt-0.5 m-auto" />
+                  <div className="flex-1">
+                    <p
+                      className="font-sans text-center text-[var(--color-text-muted)]"
+                      style={{
+                        fontSize: 'var(--font-size-sm)',
+                        lineHeight: 'var(--line-height-snug)',
+                        letterSpacing: '0.01em',
+                      }}
+                    >
+                      Hint: Use the upgrade tool to move your notes after import.
+                      <br />
+                      <a
+                        href="https://nocknames.com/upgrade"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:opacity-70 text-[#37f] font-bold"
+                      >
+                        nocknames.com/upgrade
+                      </a>
+                    </p>
+                  </div>
+                </div>
+
+                {/* 24-word input grid */}
+                <div className="flex flex-col gap-2 w-full pb-4">
+                  {Array.from({ length: 12 }).map((_, rowIndex) => (
+                    <div key={rowIndex} className="flex gap-2 w-full">
+                      {[0, 1].map(col => {
+                        const index = rowIndex * 2 + col;
+                        return (
+                          <div
+                            key={col}
+                            className="flex-1 min-w-0 bg-[var(--color-bg)] border border-[var(--color-surface-700)] rounded-lg p-2 flex items-center gap-2.5 h-11"
+                          >
+                            <span
+                              className="bg-[var(--color-surface-700)] rounded w-7 h-7 flex items-center justify-center font-sans font-medium text-[var(--color-text-primary)] flex-shrink-0"
+                              style={{
+                                fontSize: 'var(--font-size-base)',
+                                lineHeight: 'var(--line-height-snug)',
+                                letterSpacing: '0.01em',
+                              }}
+                            >
+                              {index + 1}
+                            </span>
+                            <input
+                              ref={el => {
+                                inputRefs.current[index] = el;
+                                if (index === 0) {
+                                  // @ts-ignore - Assign to auto-focus ref
+                                  firstInputRef.current = el;
+                                }
+                              }}
+                              type="text"
+                              value={wordsV0[index]}
+                              onChange={e => handleWordChange(index, e.target.value)}
+                              onKeyDown={e => handleKeyDown(index, e)}
+                              onPaste={e => handlePaste(index, e)}
+                              placeholder="word"
+                              autoComplete="off"
+                              spellCheck="false"
+                              className="flex-1 min-w-0 bg-transparent font-sans font-medium text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] outline-none"
+                              style={{
+                                fontSize: 'var(--font-size-base)',
+                                lineHeight: 'var(--line-height-snug)',
+                                letterSpacing: '0.01em',
+                              }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
 
             {/* Error message */}
             {error && <Alert type="error">{error}</Alert>}
@@ -590,7 +659,7 @@ export function ImportScreen() {
         <div className="border-t border-[var(--color-surface-800)] px-4 py-3">
           <button
             onClick={handleContinue}
-            disabled={words.some(w => !w)}
+            disabled={wordsV0.some(w => !w)}
             className="w-full h-12 px-5 py-[15px] btn-primary text-[#000000] rounded-lg flex items-center justify-center transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               fontFamily: 'var(--font-sans)',
@@ -600,77 +669,10 @@ export function ImportScreen() {
               letterSpacing: '0.01em',
             }}
           >
-            Import wallet
+            Import v0 wallet
           </button>
         </div>
       </div>
-
-      {/* Keyfile Import Modal */}
-      {showKeyfileImport && (
-        <div
-          className="absolute inset-0 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', zIndex: 50 }}
-        >
-          <div
-            className="w-full max-w-[325px] rounded-lg p-4 flex flex-col gap-4"
-            style={{
-              backgroundColor: 'var(--color-bg)',
-              border: '1px solid var(--color-surface-800)',
-            }}
-          >
-            <h3 className="font-sans font-medium text-base tracking-[0.16px] leading-[22px]">
-              Import from keyfile
-            </h3>
-            <p
-              className="font-sans text-sm tracking-[0.14px] leading-[18px]"
-              style={{ color: 'var(--color-text-muted)' }}
-            >
-              Select your keyfile to import your wallet.
-            </p>
-
-            {/* File input */}
-            <div className="flex flex-col gap-1.5">
-              <label className="font-sans font-medium text-sm tracking-[0.14px] leading-[18px]">
-                Select keyfile
-              </label>
-              <input
-                ref={fileInputRef}
-                id="keyfile-upload"
-                type="file"
-                accept=".json"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full h-[52px] px-4 rounded-lg font-sans font-medium text-sm tracking-[0.14px] leading-[18px] text-left transition-opacity hover:opacity-90"
-                style={{
-                  backgroundColor: 'var(--color-surface-700)',
-                  color: 'var(--color-text-primary)',
-                  border: '1px solid var(--color-surface-800)',
-                }}
-              >
-                Choose File
-              </button>
-            </div>
-
-            {error && <Alert type="error">{error}</Alert>}
-
-            {/* Cancel button */}
-            <button
-              onClick={handleCancelKeyfileImport}
-              className="w-full h-12 rounded-lg font-sans font-medium text-sm tracking-[0.14px] leading-[18px] transition-opacity hover:opacity-90"
-              style={{
-                backgroundColor: 'var(--color-surface-700)',
-                color: 'var(--color-text-primary)',
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
