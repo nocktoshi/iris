@@ -1,6 +1,6 @@
 {
   "name": "@nockchain/rose",
-  "version": "0.1.4-nightly.7",
+  "version": "0.1.4-nightly.8",
   "description": "Rose - Chrome Wallet Extension for Nockchain",
   "type": "module",
   "scripts": {
