@@ -70,7 +70,7 @@ export function StartScreen() {
                 letterSpacing: '-0.02em',
               }}
             >
-              Welcome to Rose
+              Rose Wallet
             </h1>
             <p
               className="font-sans text-[var(--color-text-muted)]"
@@ -80,7 +80,7 @@ export function StartScreen() {
                 letterSpacing: '0.02em',
               }}
             >
-              Your Nockchain companion
+              Nock On.
             </p>
           </div>
         </div>

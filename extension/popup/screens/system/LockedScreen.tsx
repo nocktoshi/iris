@@ -167,7 +167,7 @@ export function LockedScreen() {
                   letterSpacing: '-0.02em',
                 }}
               >
-                Welcome back
+                Rose Wallet
               </h1>
               <p
                 className="font-sans text-[var(--color-text-muted)]"
@@ -177,7 +177,7 @@ export function LockedScreen() {
                   letterSpacing: '0.02em',
                 }}
               >
-                Your Nockchain companion
+                Nock On.
               </p>
             </div>
           </div>
