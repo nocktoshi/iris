@@ -233,8 +233,10 @@ export class Vault {
   async setup(
     password: string,
     mnemonic?: string,
-    mnemonicV0?: string,
-  ): Promise<{ ok: boolean; address: string; mnemonic: string; mnemonicV0: string } | { error: string }> {
+    mnemonicV0?: string
+  ): Promise<
+    { ok: boolean; address: string; mnemonic: string; mnemonicV0: string } | { error: string }
+  > {
     // Generate or validate mnemonic
     const words = mnemonic ? mnemonic.trim() : generateMnemonic();
     const wordsV0 = mnemonicV0 ? mnemonicV0.trim() : '';

@@ -1,6 +1,6 @@
 {
-  "name": "rose",
-  "version": "0.1.2",
+  "name": "@nockchain/rose",
+  "version": "0.1.4-nightly.4",
   "description": "Rose - Chrome Wallet Extension for Nockchain",
   "type": "module",
   "scripts": {
@@ -14,7 +14,7 @@
   "dependencies": {
     "@fontsource/inter": "5.2.8",
     "@fontsource/lora": "5.2.8",
-    "@nockchain/sdk": "0.1.4-nightly.3",
+    "@nockchain/sdk": "0.1.4-nightly.4",
     "@scure/base": "2.0.0",
     "@scure/bip39": "2.0.1",
     "react": "19.2.3",

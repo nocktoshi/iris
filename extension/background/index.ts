@@ -832,7 +832,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
       case INTERNAL_METHODS.SETUP:
         // params: password, mnemonic (optional). If no mnemonic, generates one automatically.
-        const setupResult = await vault.setup(payload.params?.[0], payload.params?.[1], payload.params?.[2]);
+        const setupResult = await vault.setup(
+          payload.params?.[0],
+          payload.params?.[1],
+          payload.params?.[2]
+        );
         sendResponse(setupResult);
 
         if ('ok' in setupResult && setupResult.ok) {
@@ -927,7 +931,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           sendResponse({ error: ERROR_CODES.LOCKED });
           return;
         }
-        const res = await vault.clearMnemonicV0() as { ok: true } | { error: string };
+        const res = (await vault.clearMnemonicV0()) as { ok: true } | { error: string };
         sendResponse(res);
         return;
       }

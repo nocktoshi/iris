@@ -9,7 +9,7 @@ import AboutIcon from '../assets/settings-gear-icon.svg';
 import { version } from '../../../package-lock.json';
 
 export function SettingsScreen() {
-const { navigate } = useStore();
+  const { navigate } = useStore();
 
   function handleClose() {
     navigate('home');

@@ -16,15 +16,15 @@ export function ImportSuccessScreen() {
   const [isV0, setIsV0] = useState(false);
   useEffect(() => {
     (async () => {
-            const res = await send<{ ok?: boolean; has?: boolean; error?: unknown }>(
-                INTERNAL_METHODS.HAS_V0_MNEMONIC,
-                []
-            );
-            if (res?.ok) {
-                setIsV0(Boolean(res.has));
-            }
+      const res = await send<{ ok?: boolean; has?: boolean; error?: unknown }>(
+        INTERNAL_METHODS.HAS_V0_MNEMONIC,
+        []
+      );
+      if (res?.ok) {
+        setIsV0(Boolean(res.has));
+      }
     })();
-}, []);
+  }, []);
   // Format address to show start and end with middle grayed out
   function formatAddress(address: string) {
     if (!address || address.length < 20) return address;
@@ -102,7 +102,9 @@ export function ImportSuccessScreen() {
                   letterSpacing: '0.02em',
                 }}
               >
-                {isV0 ? 'A new v1 wallet has been created for you. You can use the upgrade tool to move your v0 notes.' : 'Your wallet is ready to use'}
+                {isV0
+                  ? 'A new v1 wallet has been created for you. You can use the upgrade tool to move your v0 notes.'
+                  : 'Your wallet is ready to use'}
               </p>
             </div>
           </div>
@@ -194,7 +196,8 @@ export function ImportSuccessScreen() {
                         letterSpacing: '0.01em',
                       }}
                     >
-                      Hint: Use the upgrade tool to move your v0 notes.<br />
+                      Hint: Use the upgrade tool to move your v0 notes.
+                      <br />
                       <a
                         href="https://nocknames.com/upgrade"
                         target="_blank"

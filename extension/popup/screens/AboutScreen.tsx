@@ -87,14 +87,7 @@ export function AboutScreen() {
               onClick={handleVisitNockchainWebsite}
               className="text-left bg-transparent p-0 text-base font-medium leading-[22px] tracking-[0.16px] underline underline-offset-2 transition-opacity hover:opacity-70 focus:outline-none focus-visible:ring-2"
             >
-              nockchain.net
-            </button>
-            <button
-              type="button"
-              onClick={handleVisitNockboxWebsite}
-              className="text-left bg-transparent p-0 text-base font-medium leading-[22px] tracking-[0.16px] underline underline-offset-2 transition-opacity hover:opacity-70 focus:outline-none focus-visible:ring-2"
-            >
-              nockbox.org
+              Copyright (c) 2026 nockchain.net LLC oss@nockchain.net
             </button>
             <button
               type="button"
@@ -106,15 +99,12 @@ export function AboutScreen() {
               }
               className="text-left bg-transparent p-0 text-base font-medium leading-[22px] tracking-[0.16px] underline underline-offset-2 transition-opacity hover:opacity-70 focus:outline-none focus-visible:ring-2"
             >
-              Copyright (c) 2025 NockBox inc.
+              Copyright (c) 2025 NockBox inc. tech@nockbox.org
             </button>
             <button
               type="button"
               onClick={() =>
-                window.open(
-                  'https://www.vecteezy.com/free-vector/simple-rose',
-                  '_blank'
-                )
+                window.open('https://www.vecteezy.com/free-vector/simple-rose', '_blank')
               }
               className="text-left bg-transparent p-0 text-base font-medium leading-[22px] tracking-[0.16px] underline underline-offset-2 transition-opacity hover:opacity-70 focus:outline-none focus-visible:ring-2"
             >
