@@ -36,6 +36,7 @@ import { WalletSettingsScreen } from './screens/WalletSettingsScreen';
 import { WalletStylingScreen } from './screens/WalletStylingScreen';
 import { AboutScreen } from './screens/AboutScreen';
 import { RecoveryPhraseScreen } from './screens/RecoveryPhraseScreen';
+import YubiKeySettingsScreen from './screens/YubiKeySettingsScreen';
 
 export function Router() {
   const { currentScreen } = useStore();
@@ -73,6 +74,8 @@ export function Router() {
       return <LockTimeScreen />;
     case 'key-settings':
       return <KeySettingsPasswordScreen />;
+      case 'yubikey-settings':
+        return <YubiKeySettingsScreen />;
     case 'view-secret-phrase':
       return <ViewSecretPhraseScreen />;
     case 'wallet-permissions':

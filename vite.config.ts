@@ -44,6 +44,8 @@ export default defineConfig({
     emptyOutDir: true,
     // Disable CSS code splitting to avoid document.* injection in service worker
     cssCodeSplit: false,
+    // Disable module preload polyfill - it injects window.dispatchEvent which fails in service workers
+    modulePreload: false,
     sourcemap: true,
     minify: 'terser',
     rollupOptions: {

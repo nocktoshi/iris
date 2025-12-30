@@ -8,9 +8,11 @@ import { formatWalletError } from '../utils/formatWalletError';
 import { nockToNick, formatNock, formatNick } from '../../shared/currency';
 import { ChevronLeftIcon } from '../components/icons/ChevronLeftIcon';
 import { ChevronRightIcon } from '../components/icons/ChevronRightIcon';
+import { useHardwareWallet } from '../hooks/useHardwareWallet';
 
 export function SendReviewScreen() {
   const { navigate, wallet, lastTransaction, priceUsd } = useStore();
+  const { status: hwStatus, verify: verifyHardware } = useHardwareWallet();
 
   // If no transaction data, go back to send screen
   if (!lastTransaction) {
@@ -50,6 +52,16 @@ export function SendReviewScreen() {
     setError('');
 
     try {
+      // If hardware wallet is configured, require verification before signing
+      if (hwStatus?.enabled) {
+        const hwResult = await verifyHardware(`Sign transaction to ${truncateAddress(lastTransaction.to)}`);
+        if (!hwResult.success) {
+          setError(hwResult.error || 'YubiKey verification required to sign transaction');
+          setIsSending(false);
+          return;
+        }
+      }
+
       const amountInNicks = nockToNick(lastTransaction.amount);
       const feeInNicks = nockToNick(lastTransaction.fee);
 

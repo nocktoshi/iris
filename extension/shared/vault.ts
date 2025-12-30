@@ -127,17 +127,30 @@ function selectNotesForAmount(notes: StoredNote[], targetAmount: number): Stored
  * Prevents address enumeration from disk/backup without password
  */
 interface EncryptedVault {
-  version: 1;
+  version: 1 | 2; // v2 adds hardware encryption support
   kdf: {
     name: 'PBKDF2';
     hash: 'SHA-256';
     iterations: number;
     salt: number[]; // PBKDF2 salt for key derivation
   };
-  cipher: {
+  /** Password-encrypted vault - present in v1, absent in v2 when hardware encryption is active */
+  cipher?: {
     alg: 'AES-GCM';
     iv: number[]; // AES-GCM initialization vector (12 bytes)
     ct: number[]; // Ciphertext (includes authentication tag, contains VaultPayload)
+  };
+  /** Hardware-encrypted vault (YubiKey PRF) - if present, hardware is REQUIRED to decrypt */
+  hwCipher?: {
+    alg: 'AES-GCM';
+    iv: number[]; // AES-GCM IV for hardware-encrypted payload
+    ct: number[]; // Ciphertext encrypted with PRF-derived key
+  };
+  /** Password verification token - used to verify password when disabling hardware encryption */
+  passwordCheck?: {
+    alg: 'AES-GCM';
+    iv: number[];
+    ct: number[]; // Encrypted known value for password verification
   };
 }
 
@@ -318,10 +331,20 @@ export class Vault {
   }
 
   /**
-   * Unlocks the vault with the provided password
+   * Unlocks the vault with password or cached key
+   *
+   * @param credential - Either a password string or a cached CryptoKey (for session restore)
+   *
+   * Password unlock:
+   * - Derives key from password using stored KDF parameters
+   * - Rejects if hardware encryption is enabled (use hardware unlock instead)
+   *
+   * Key unlock (session restore):
+   * - Uses the provided key directly
+   * - Works for both password-derived and hardware-derived keys
    */
   async unlock(
-    password: string
+    credential: string | CryptoKey
   ): Promise<
     | { ok: boolean; address: string; accounts: Account[]; currentAccount: Account }
     | { error: string }
@@ -339,34 +362,69 @@ export class Vault {
     }
 
     try {
-      // Re-derive key using stored KDF parameters (critical for forward compatibility)
-      const { key } = await deriveKeyPBKDF2(
-        password,
-        new Uint8Array(enc.kdf.salt),
-        enc.kdf.iterations,
-        enc.kdf.hash
-      );
+      let key: CryptoKey;
+      let cipherIv: number[];
+      let cipherCt: number[];
+
+      if (typeof credential === 'string') {
+        // Password unlock - derive key from password
+        const password = credential;
+
+        // If hardware encryption is enabled, password-only unlock is not allowed
+        if (enc.hwCipher) {
+          return { error: ERROR_CODES.HARDWARE_REQUIRED };
+        }
+
+        // Ensure password cipher exists
+        if (!enc.cipher) {
+          return { error: 'Invalid vault structure: missing password cipher' };
+        }
+
+        // Derive key from password
+        const derived = await deriveKeyPBKDF2(
+          password,
+          new Uint8Array(enc.kdf.salt),
+          enc.kdf.iterations,
+          enc.kdf.hash
+        );
+        key = derived.key;
+        cipherIv = enc.cipher.iv;
+        cipherCt = enc.cipher.ct;
+      } else {
+        // Key unlock (session restore) - use key directly
+        key = credential;
+
+        // Determine which cipher to use based on vault mode
+        if (enc.hwCipher) {
+          cipherIv = enc.hwCipher.iv;
+          cipherCt = enc.hwCipher.ct;
+        } else if (enc.cipher) {
+          cipherIv = enc.cipher.iv;
+          cipherCt = enc.cipher.ct;
+        } else {
+          return { error: 'Invalid vault structure: no cipher available' };
+        }
+      }
 
       // Decrypt the vault
       const pt = await decryptGCM(
         key,
-        new Uint8Array(enc.cipher.iv),
-        new Uint8Array(enc.cipher.ct)
+        new Uint8Array(cipherIv),
+        new Uint8Array(cipherCt)
       ).catch(() => null);
 
       if (!pt) {
         return { error: ERROR_CODES.BAD_PASSWORD };
       }
 
-      // Parse vault payload (mnemonic + accounts)
+      // Parse vault payload
       const payload = JSON.parse(pt) as VaultPayload;
-      const mnemonic = payload.mnemonic;
       const accounts = payload.accounts;
 
-      // Store decrypted data in memory (only after successful decrypt)
-      this.mnemonic = mnemonic;
+      // Store decrypted data in memory
+      this.mnemonic = payload.mnemonic;
       this.mnemonicV0 = payload.mnemonicV0 ?? null;
-      this.encryptionKey = key; // Cache key for account operations
+      this.encryptionKey = key;
 
       this.state = {
         locked: false,
@@ -388,10 +446,171 @@ export class Vault {
   }
 
   /**
-   * Unlocks the vault using a cached encryption key (used for session restore)
+   * Returns the cached encryption key (null when locked)
    */
-  async unlockWithKey(
-    key: CryptoKey
+  getEncryptionKey(): CryptoKey | null {
+    return this.encryptionKey;
+  }
+
+  /**
+   * Check if hardware (YubiKey) is required to unlock the vault
+   */
+  isHardwareRequired(): boolean {
+    return this.state.enc?.hwCipher !== undefined;
+  }
+
+  /**
+   * Enable hardware encryption for the vault using a PRF-derived key from YubiKey
+   * This re-encrypts the vault so that ONLY the hardware key can decrypt it
+   * The password cipher is DELETED - only hardware can unlock after this
+   *
+   * A password verification token is created so we can verify the password
+   * when the user wants to disable hardware encryption later.
+   *
+   * @param prfKey - AES-GCM key derived from YubiKey PRF output
+   */
+  async enableHardwareEncryption(prfKey: CryptoKey): Promise<{ ok: boolean } | { error: string }> {
+    if (!this.mnemonic || !this.state.enc || !this.encryptionKey) {
+      return { error: 'Vault must be unlocked to enable hardware encryption' };
+    }
+
+    try {
+      // Create password verification token using current (password-derived) key
+      // This allows us to verify the password later without keeping the full vault cipher
+      const PASSWORD_CHECK_VALUE = 'ROSE_WALLET_PASSWORD_CHECK_V1';
+      const { iv: checkIv, ct: checkCt } = await encryptGCM(
+        this.encryptionKey,
+        new TextEncoder().encode(PASSWORD_CHECK_VALUE)
+      );
+
+      // Encrypt the vault payload with the hardware-derived key
+      const vaultPayload: VaultPayload = {
+        mnemonic: this.mnemonic,
+        mnemonicV0: this.mnemonicV0,
+        accounts: this.state.accounts,
+      };
+      const payloadJson = JSON.stringify(vaultPayload);
+      const { iv, ct } = await encryptGCM(prfKey, new TextEncoder().encode(payloadJson));
+
+      // Update the vault - DELETE password cipher, keep only hardware cipher
+      const encData: EncryptedVault = {
+        version: 2, // v2 = hardware encryption active
+        kdf: this.state.enc.kdf, // Keep KDF params for password verification
+        // cipher: DELETED - no password-encrypted vault
+        hwCipher: {
+          alg: 'AES-GCM',
+          iv: Array.from(iv),
+          ct: Array.from(ct),
+        },
+        passwordCheck: {
+          alg: 'AES-GCM',
+          iv: Array.from(checkIv),
+          ct: Array.from(checkCt),
+        },
+      };
+
+      // Save to storage
+      await chrome.storage.local.set({
+        [STORAGE_KEYS.ENCRYPTED_VAULT]: encData,
+      });
+
+      // Update in-memory state
+      this.state.enc = encData;
+
+      return { ok: true };
+    } catch (err) {
+      console.error('[Vault] Failed to enable hardware encryption:', err);
+      return { error: err instanceof Error ? err.message : 'Failed to enable hardware encryption' };
+    }
+  }
+
+  /**
+   * Disable hardware encryption (removes hwCipher, allows password-only unlock)
+   * Requires vault to be unlocked AND the original password to verify identity
+   *
+   * Password is verified using the passwordCheck token (not full vault cipher).
+   * The vault is then re-encrypted with the password-derived key.
+   *
+   * @param password - User's original password (verified against passwordCheck token)
+   */
+  async disableHardwareEncryption(
+    password: string
+  ): Promise<{ ok: boolean } | { error: string }> {
+    if (!this.mnemonic || !this.state.enc) {
+      return { error: 'Vault must be unlocked to disable hardware encryption' };
+    }
+
+    if (!this.state.enc.hwCipher) {
+      return { ok: true }; // Already disabled
+    }
+
+    if (!this.state.enc.passwordCheck) {
+      return { error: 'Password verification token missing - cannot disable hardware encryption' };
+    }
+
+    try {
+      // Re-derive password key using stored KDF parameters
+      const { key } = await deriveKeyPBKDF2(
+        password,
+        new Uint8Array(this.state.enc.kdf.salt),
+        this.state.enc.kdf.iterations,
+        this.state.enc.kdf.hash
+      );
+
+      // Verify password by decrypting the password check token
+      const PASSWORD_CHECK_VALUE = 'ROSE_WALLET_PASSWORD_CHECK_V1';
+      const decrypted = await decryptGCM(
+        key,
+        new Uint8Array(this.state.enc.passwordCheck.iv),
+        new Uint8Array(this.state.enc.passwordCheck.ct)
+      ).catch(() => null);
+
+      if (!decrypted || decrypted !== PASSWORD_CHECK_VALUE) {
+        return { error: ERROR_CODES.BAD_PASSWORD };
+      }
+
+      // Password verified - now re-encrypt current vault state with password-derived key
+      const vaultPayload: VaultPayload = {
+        mnemonic: this.mnemonic,
+        mnemonicV0: this.mnemonicV0,
+        accounts: this.state.accounts,
+      };
+      const payloadJson = JSON.stringify(vaultPayload);
+      const { iv, ct } = await encryptGCM(key, new TextEncoder().encode(payloadJson));
+
+      // Remove hardware cipher and passwordCheck, restore password encryption
+      const encData: EncryptedVault = {
+        version: 1,
+        kdf: this.state.enc.kdf,
+        cipher: {
+          alg: 'AES-GCM',
+          iv: Array.from(iv),
+          ct: Array.from(ct),
+        },
+      };
+
+      await chrome.storage.local.set({
+        [STORAGE_KEYS.ENCRYPTED_VAULT]: encData,
+      });
+
+      // Update in-memory state and switch to password-derived key
+      this.state.enc = encData;
+      this.encryptionKey = key;
+
+      return { ok: true };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : 'Failed to disable hardware encryption' };
+    }
+  }
+
+  /**
+   * Unlock the vault using a hardware-derived key (YubiKey PRF)
+   * This is the ONLY way to unlock when hwCipher is present
+   *
+   * @param prfKey - AES-GCM key derived from YubiKey PRF output
+   */
+  async unlockWithHardwareKey(
+    prfKey: CryptoKey
   ): Promise<
     | { ok: boolean; address: string; accounts: Account[]; currentAccount: Account }
     | { error: string }
@@ -408,75 +627,100 @@ export class Vault {
       return { error: ERROR_CODES.NO_VAULT };
     }
 
-    const pt = await decryptGCM(
-      key,
-      new Uint8Array(enc.cipher.iv),
-      new Uint8Array(enc.cipher.ct)
-    ).catch(() => null);
-
-    if (!pt) {
-      return { error: ERROR_CODES.BAD_PASSWORD };
+    if (!enc.hwCipher) {
+      return { error: 'Hardware encryption not enabled on this vault' };
     }
 
-    const payload = JSON.parse(pt) as VaultPayload;
-    const accounts = payload.accounts;
+    try {
+      // Decrypt using hardware key
+      const pt = await decryptGCM(
+        prfKey,
+        new Uint8Array(enc.hwCipher.iv),
+        new Uint8Array(enc.hwCipher.ct)
+      ).catch(() => null);
 
-    this.mnemonic = payload.mnemonic;
-    this.mnemonicV0 = payload.mnemonicV0 ?? null;
-    this.encryptionKey = key;
+      if (!pt) {
+        return { error: 'Hardware key verification failed' };
+      }
 
-    this.state = {
-      locked: false,
-      accounts,
-      currentAccountIndex,
-      enc,
-    };
+      // Parse vault payload
+      const payload = JSON.parse(pt) as VaultPayload;
+      const mnemonic = payload.mnemonic;
+      const accounts = payload.accounts;
 
-    const currentAccount = accounts[currentAccountIndex] || accounts[0];
-    return {
-      ok: true,
-      address: currentAccount?.address || '',
-      accounts,
-      currentAccount,
-    };
-  }
+      // Store decrypted data in memory
+      this.mnemonic = mnemonic;
+      this.mnemonicV0 = payload.mnemonicV0 ?? null;
+      this.encryptionKey = prfKey; // Use hardware key for subsequent operations
 
-  /**
-   * Returns the cached encryption key (null when locked)
-   */
-  getEncryptionKey(): CryptoKey | null {
-    return this.encryptionKey;
+      this.state = {
+        locked: false,
+        accounts,
+        currentAccountIndex,
+        enc,
+      };
+
+      const currentAccount = accounts[currentAccountIndex] || accounts[0];
+      return {
+        ok: true,
+        address: currentAccount?.address || '',
+        accounts,
+        currentAccount,
+      };
+    } catch (err) {
+      console.error('[Vault] Hardware unlock failed:', err);
+      return { error: err instanceof Error ? err.message : 'Hardware unlock failed' };
+    }
   }
 
   /**
    * Helper method to save accounts back to the encrypted vault
    * Called whenever accounts are modified (create, rename, update styling, hide)
    * Requires wallet to be unlocked (encryptionKey must be in memory)
+   *
+   * NOTE: Only updates the cipher corresponding to the current unlock method:
+   * - If unlocked with password: updates password cipher
+   * - If unlocked with hardware key: updates hardware cipher
+   *
+   * When hardware encryption is active, there is no password cipher (only passwordCheck token).
    */
   private async saveAccountsToVault(): Promise<void> {
     if (!this.mnemonic || !this.state.enc || !this.encryptionKey) {
       throw new Error('Cannot save accounts: vault is locked or not initialized');
     }
 
-    // Re-encrypt mnemonic + accounts together with the key stored in memory
+    // Prepare vault payload
     const vaultPayload: VaultPayload = {
       mnemonic: this.mnemonic,
       mnemonicV0: this.mnemonicV0,
       accounts: this.state.accounts,
     };
     const payloadJson = JSON.stringify(vaultPayload);
-    const { iv, ct } = await encryptGCM(this.encryptionKey, new TextEncoder().encode(payloadJson));
+    const payloadBytes = new TextEncoder().encode(payloadJson);
 
-    // Update the encrypted vault with new IV and ciphertext
-    const encData: EncryptedVault = {
-      version: 1,
-      kdf: this.state.enc.kdf, // Reuse same KDF parameters (salt, iterations)
-      cipher: {
-        alg: 'AES-GCM',
-        iv: Array.from(iv),
-        ct: Array.from(ct),
-      },
-    };
+    // Re-encrypt with the current key (either password-derived or hardware-derived)
+    const { iv, ct } = await encryptGCM(this.encryptionKey, payloadBytes);
+
+    // Build updated vault structure based on encryption mode
+    let encData: EncryptedVault;
+
+    if (this.state.enc.hwCipher) {
+      // Hardware encryption mode - update hwCipher, no password cipher
+      encData = {
+        version: 2,
+        kdf: this.state.enc.kdf,
+        // No cipher - password cannot decrypt vault
+        hwCipher: { alg: 'AES-GCM', iv: Array.from(iv), ct: Array.from(ct) },
+        passwordCheck: this.state.enc.passwordCheck, // Preserve password check token
+      };
+    } else {
+      // Password encryption mode - update cipher
+      encData = {
+        version: 1,
+        kdf: this.state.enc.kdf,
+        cipher: { alg: 'AES-GCM', iv: Array.from(iv), ct: Array.from(ct) },
+      };
+    }
 
     // Save updated vault to storage
     await chrome.storage.local.set({
@@ -750,12 +994,19 @@ export class Vault {
 
   /**
    * Gets the mnemonic phrase (only when unlocked)
-   * Requires password verification for security
+   *
+   * Security verification:
+   * - Password mode: Requires password to verify identity
+   * - Hardware mode: Requires PRF output from YubiKey (actual hardware verification)
+   *
+   * @param password - Password for verification (password mode only)
+   * @param prfOutput - PRF output from YubiKey (hardware mode only)
    */
   async getMnemonic(
-    password: string
+    password: string,
+    prfOutput?: Uint8Array
   ): Promise<{ ok: boolean; mnemonic: string } | { error: string }> {
-    if (this.state.locked) {
+    if (this.state.locked || !this.mnemonic) {
       return { error: ERROR_CODES.LOCKED };
     }
 
@@ -763,28 +1014,56 @@ export class Vault {
       return { error: ERROR_CODES.NO_VAULT };
     }
 
-    // Re-verify password before revealing mnemonic
     try {
-      const { key } = await deriveKeyPBKDF2(
-        password,
-        new Uint8Array(this.state.enc.kdf.salt),
-        this.state.enc.kdf.iterations,
-        this.state.enc.kdf.hash
-      );
+      // Different verification based on vault mode
+      if (this.state.enc.hwCipher) {
+        // Hardware mode - REQUIRE actual YubiKey verification (PRF output)
+        if (!prfOutput) {
+          return { error: ERROR_CODES.HARDWARE_REQUIRED };
+        }
 
-      const pt = await decryptGCM(
-        key,
-        new Uint8Array(this.state.enc.cipher.iv),
-        new Uint8Array(this.state.enc.cipher.ct)
-      ).catch(() => null);
+        // Verify by deriving key from PRF and attempting to decrypt hwCipher
+        const { deriveKeyFromPRF } = await import('./prf-crypto');
+        const prfKey = await deriveKeyFromPRF(prfOutput);
 
-      if (!pt) {
-        return { error: ERROR_CODES.BAD_PASSWORD };
+        const pt = await decryptGCM(
+          prfKey,
+          new Uint8Array(this.state.enc.hwCipher.iv),
+          new Uint8Array(this.state.enc.hwCipher.ct)
+        ).catch(() => null);
+
+        if (!pt) {
+          return { error: 'Hardware key verification failed' };
+        }
+
+        // Hardware verified - return mnemonic from memory
+        return { ok: true, mnemonic: this.mnemonic };
+      } else {
+        // Password mode - verify by decrypting vault
+        if (!this.state.enc.cipher) {
+          return { error: 'Invalid vault structure' };
+        }
+
+        const { key } = await deriveKeyPBKDF2(
+          password,
+          new Uint8Array(this.state.enc.kdf.salt),
+          this.state.enc.kdf.iterations,
+          this.state.enc.kdf.hash
+        );
+
+        const pt = await decryptGCM(
+          key,
+          new Uint8Array(this.state.enc.cipher.iv),
+          new Uint8Array(this.state.enc.cipher.ct)
+        ).catch(() => null);
+
+        if (!pt) {
+          return { error: ERROR_CODES.BAD_PASSWORD };
+        }
+
+        // Password verified - return mnemonic from memory
+        return { ok: true, mnemonic: this.mnemonic };
       }
-
-      // Parse the vault payload and return only the mnemonic
-      const payload = JSON.parse(pt) as VaultPayload;
-      return { ok: true, mnemonic: payload.mnemonic };
     } catch (err) {
       return { error: ERROR_CODES.BAD_PASSWORD };
     }

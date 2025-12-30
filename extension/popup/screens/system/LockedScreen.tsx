@@ -1,9 +1,9 @@
 /**
- * Locked Screen - Unlock wallet with password
+ * Locked Screen - Unlock wallet with password or YubiKey
  */
 
-import { useState } from 'react';
-import { INTERNAL_METHODS } from '../../../shared/constants';
+import { useState, useEffect } from 'react';
+import { INTERNAL_METHODS, ERROR_CODES } from '../../../shared/constants';
 import { useStore } from '../../store';
 import { send } from '../../utils/messaging';
 import { formatWalletError } from '../../utils/formatWalletError';
@@ -11,6 +11,7 @@ import { Alert } from '../../components/Alert';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { EyeIcon } from '../../components/icons/EyeIcon';
 import { EyeOffIcon } from '../../components/icons/EyeOffIcon';
+import { useHardwareWallet } from '../../hooks/useHardwareWallet';
 import vectorLeft from '../../assets/vector-left.svg';
 import vectorRight from '../../assets/vector-right.svg';
 import vectorTopRight from '../../assets/vector-top-right.svg';
@@ -23,6 +24,9 @@ export function LockedScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [hardwareRequired, setHardwareRequired] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
+  const { unlockWithHardware } = useHardwareWallet();
   const {
     navigate,
     syncWallet,
@@ -33,6 +37,58 @@ export function LockedScreen() {
     pendingSignRequest,
     pendingSignRawTxRequest,
   } = useStore();
+
+  // Check if hardware unlock is required
+  useEffect(() => {
+    async function checkHardwareRequired() {
+      const state = await send<{ hardwareRequired?: boolean }>(INTERNAL_METHODS.GET_STATE, []);
+      setHardwareRequired(state?.hardwareRequired ?? false);
+    }
+    checkHardwareRequired();
+  }, []);
+
+  // Navigate after successful unlock
+  async function onUnlockSuccess(result: {
+    address?: string;
+    accounts?: Array<{ name: string; address: string; index: number }>;
+    currentAccount?: { name: string; address: string; index: number };
+  }) {
+    const accounts = result.accounts || [];
+    const currentAccount = result.currentAccount || accounts[0] || null;
+
+    // Load cached balances from storage
+    const { STORAGE_KEYS } = await import('../../../shared/constants');
+    const stored = await chrome.storage.local.get([STORAGE_KEYS.CACHED_BALANCES]);
+    const cachedBalances = (stored[STORAGE_KEYS.CACHED_BALANCES] || {}) as Record<string, number>;
+    const cachedBalance = currentAccount ? (cachedBalances[currentAccount.address] ?? 0) : 0;
+
+    syncWallet({
+      ...wallet,
+      locked: false,
+      address: result.address || null,
+      accounts,
+      currentAccount,
+      balance: cachedBalance,
+      availableBalance: cachedBalance,
+      accountBalances: cachedBalances,
+    });
+
+    // Trigger balance fetch after successful unlock
+    fetchBalance();
+
+    // Navigate to pending approval if one exists, otherwise go home
+    if (pendingConnectRequest) {
+      navigate('connect-approval');
+    } else if (pendingTransactionRequest) {
+      navigate('approve-transaction');
+    } else if (pendingSignRequest) {
+      navigate('sign-message');
+    } else if (pendingSignRawTxRequest) {
+      navigate('approve-sign-raw-tx');
+    } else {
+      navigate('home');
+    }
+  }
 
   async function handleUnlock() {
     // Clear previous errors
@@ -52,45 +108,45 @@ export function LockedScreen() {
     }>(INTERNAL_METHODS.UNLOCK, [password]);
 
     if (result?.error) {
-      setError(formatWalletError(result.error));
+      // Check if hardware unlock is required
+      if (result.error === ERROR_CODES.HARDWARE_REQUIRED) {
+        setHardwareRequired(true);
+        setError('YubiKey required to unlock. Touch your YubiKey below.');
+      } else {
+        setError(formatWalletError(result.error));
+      }
       setPassword(''); // Clear password on error
     } else {
       setPassword('');
-      const accounts = result.accounts || [];
-      const currentAccount = result.currentAccount || accounts[0] || null;
+      await onUnlockSuccess(result);
+    }
+  }
 
-      // Load cached balances from storage
-      const { STORAGE_KEYS } = await import('../../../shared/constants');
-      const stored = await chrome.storage.local.get([STORAGE_KEYS.CACHED_BALANCES]);
-      const cachedBalances = (stored[STORAGE_KEYS.CACHED_BALANCES] || {}) as Record<string, number>;
-      const cachedBalance = currentAccount ? (cachedBalances[currentAccount.address] ?? 0) : 0;
+  async function handleHardwareUnlock() {
+    setError('');
+    setUnlocking(true);
 
-      syncWallet({
-        ...wallet,
-        locked: false,
-        address: result.address || null,
-        accounts,
-        currentAccount,
-        balance: cachedBalance,
-        availableBalance: cachedBalance,
-        accountBalances: cachedBalances,
-      });
-
-      // Trigger balance fetch after successful unlock
-      fetchBalance();
-
-      // Navigate to pending approval if one exists, otherwise go home
-      if (pendingConnectRequest) {
-        navigate('connect-approval');
-      } else if (pendingTransactionRequest) {
-        navigate('approve-transaction');
-      } else if (pendingSignRequest) {
-        navigate('sign-message');
-      } else if (pendingSignRawTxRequest) {
-        navigate('approve-sign-raw-tx');
-      } else {
-        navigate('home');
+    try {
+      const hwResult = await unlockWithHardware();
+      
+      if (!hwResult.success) {
+        setError(hwResult.error || 'Hardware unlock failed');
+        setUnlocking(false);
+        return;
       }
+
+      // Get updated state after hardware unlock
+      const state = await send<{
+        address?: string;
+        accounts?: Array<{ name: string; address: string; index: number }>;
+        currentAccount?: { name: string; address: string; index: number };
+      }>(INTERNAL_METHODS.GET_STATE, []);
+
+      await onUnlockSuccess(state);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Hardware unlock failed');
+    } finally {
+      setUnlocking(false);
     }
   }
 
@@ -182,67 +238,110 @@ export function LockedScreen() {
             </div>
           </div>
 
-          {/* Password input and unlock button */}
+          {/* Unlock options */}
           <div className="flex flex-col gap-4 w-full">
-            <div className="flex flex-col gap-1.5 w-full">
-              <label
-                className="font-sans font-medium text-[var(--color-text-primary)]"
-                style={{
-                  fontSize: 'var(--font-size-sm)',
-                  lineHeight: 'var(--line-height-snug)',
-                  letterSpacing: '0.02em',
-                }}
-              >
-                Password
-              </label>
-              <div className="bg-[var(--color-bg)] border border-[var(--color-surface-700)] rounded-lg p-3 flex items-center gap-2.5 h-[52px]">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={e => {
-                    setPassword(e.target.value);
-                    setError('');
-                  }}
-                  onKeyDown={e => e.key === 'Enter' && handleUnlock()}
-                  placeholder="Enter your password"
-                  autoFocus
-                  className="flex-1 bg-transparent font-sans font-medium text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] outline-none"
+            {/* YubiKey unlock - shown when hardware is required */}
+            {hardwareRequired && (
+              <div className="flex flex-col gap-3 w-full">
+                <div className="bg-[var(--color-surface-700)]/30 rounded-lg p-3 flex items-center gap-3">
+                  <div className="p-2 bg-[var(--color-primary)]/20 rounded-lg">
+                    <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-[var(--color-primary)]" stroke="currentColor" strokeWidth="2">
+                      <rect x="2" y="6" width="20" height="12" rx="2" />
+                      <circle cx="17" cy="12" r="2" />
+                      <line x1="6" y1="10" x2="12" y2="10" />
+                      <line x1="6" y1="14" x2="10" y2="14" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-sans font-medium text-[var(--color-text-primary)] text-sm">
+                      YubiKey Required
+                    </p>
+                    <p className="font-sans text-[var(--color-text-muted)] text-xs">
+                      Touch your YubiKey to unlock
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleHardwareUnlock}
+                  disabled={unlocking}
+                  className="w-full h-12 px-5 py-[15px] btn-secondary text-[var(--color-bg)] rounded-lg flex items-center justify-center transition-opacity hover:opacity-90 disabled:opacity-50"
                   style={{
+                    fontFamily: 'var(--font-sans)',
                     fontSize: 'var(--font-size-base)',
+                    fontWeight: 500,
                     lineHeight: 'var(--line-height-snug)',
                     letterSpacing: '0.01em',
                   }}
-                />
-                <button
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                 >
-                  {showPassword ? (
-                    <EyeOffIcon className="h-4 w-4" />
-                  ) : (
-                    <EyeIcon className="h-4 w-4" />
-                  )}
+                  {unlocking ? 'Touch your YubiKey...' : 'Unlock with YubiKey'}
                 </button>
               </div>
-            </div>
+            )}
+
+            {/* Password unlock - shown when hardware is NOT required */}
+            {!hardwareRequired && (
+              <>
+                <div className="flex flex-col gap-1.5 w-full">
+                  <label
+                    className="font-sans font-medium text-[var(--color-text-primary)]"
+                    style={{
+                      fontSize: 'var(--font-size-sm)',
+                      lineHeight: 'var(--line-height-snug)',
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    Password
+                  </label>
+                  <div className="bg-[var(--color-bg)] border border-[var(--color-surface-700)] rounded-lg p-3 flex items-center gap-2.5 h-[52px]">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={e => {
+                        setPassword(e.target.value);
+                        setError('');
+                      }}
+                      onKeyDown={e => e.key === 'Enter' && handleUnlock()}
+                      placeholder="Enter your password"
+                      autoFocus
+                      className="flex-1 bg-transparent font-sans font-medium text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] outline-none"
+                      style={{
+                        fontSize: 'var(--font-size-base)',
+                        lineHeight: 'var(--line-height-snug)',
+                        letterSpacing: '0.01em',
+                      }}
+                    />
+                    <button
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                    >
+                      {showPassword ? (
+                        <EyeOffIcon className="h-4 w-4" />
+                      ) : (
+                        <EyeIcon className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Unlock button */}
+                <button
+                  onClick={handleUnlock}
+                  className="w-full h-12 px-5 py-[15px] btn-secondary text-[var(--color-bg)] rounded-lg flex items-center justify-center transition-opacity hover:opacity-90"
+                  style={{
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 'var(--font-size-base)',
+                    fontWeight: 500,
+                    lineHeight: 'var(--line-height-snug)',
+                    letterSpacing: '0.01em',
+                  }}
+                >
+                  Unlock
+                </button>
+              </>
+            )}
 
             {/* Error message */}
             {error && <Alert type="error">{error}</Alert>}
-
-            {/* Unlock button */}
-            <button
-              onClick={handleUnlock}
-              className="w-full h-12 px-5 py-[15px] btn-secondary text-[var(--color-bg)] rounded-lg flex items-center justify-center transition-opacity hover:opacity-90"
-              style={{
-                fontFamily: 'var(--font-sans)',
-                fontSize: 'var(--font-size-base)',
-                fontWeight: 500,
-                lineHeight: 'var(--line-height-snug)',
-                letterSpacing: '0.01em',
-              }}
-            >
-              Unlock
-            </button>
           </div>
         </div>
 

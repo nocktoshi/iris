@@ -91,6 +91,7 @@ export function SettingsScreen() {
         <div className="flex flex-col gap-2 px-3 py-2">
           {/* <Row icon={ThemeIcon} label="Theme settings" onClick={handleThemeSettings} /> */}
           <Row icon={KeyIcon} label="Key settings" onClick={handleKeySettings} />
+          <Row icon={KeyIcon} label="YubiKey settings" onClick={()=>navigate('yubikey-settings')} />
           <Row icon={ClockIcon} label="Lock time" onClick={handleLockTime} />
           <Row icon={KeyIcon} label="Upgrade v0 → v1" onClick={handleV0Migration} />
           <Row icon={AboutIcon} label="About" onClick={handleAbout} />

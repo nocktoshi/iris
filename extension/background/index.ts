@@ -7,6 +7,8 @@
 import { Vault } from '../shared/vault';
 import { isNockAddress } from '../shared/validators';
 import { initIrisSdkOnce } from '../shared/wasm-utils';
+import { hardwareWallet } from '../shared/hardware-wallet';
+import { deriveKeyFromPRF } from '../shared/prf-crypto';
 import {
   PROVIDER_METHODS,
   INTERNAL_METHODS,
@@ -95,7 +97,7 @@ async function persistUnlockSession(): Promise<void> {
       [SESSION_STORAGE_KEYS.UNLOCK_CACHE]: Array.from(rawKey),
     });
   } catch (error) {
-    console.error('[Background] Failed to persist unlock session:', error);
+    console.warn('[Background] Could not persist session:', error);
   }
 }
 
@@ -135,7 +137,7 @@ async function restoreUnlockSession(): Promise<void> {
       false,
       ['encrypt', 'decrypt']
     );
-    const result = await vault.unlockWithKey(key);
+    const result = await vault.unlock(key);
     if ('error' in result) {
       await clearUnlockSessionCache();
     }
@@ -460,6 +462,7 @@ const initPromise = (async () => {
 
   await loadApprovedOrigins();
   await vault.init(); // Load encrypted vault header to detect vault existence
+  await hardwareWallet.init(); // Load hardware wallet config
   await restoreUnlockSession(); // Rehydrate unlock state if still within auto-lock window
 
   // Only schedule alarm if auto-lock is enabled, otherwise ensure any stale alarm is cleared
@@ -858,6 +861,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           address: await vault.getAddressSafe(),
           accounts: vault.getAccounts(),
           currentAccount: vault.getCurrentAccount(),
+          hardwareRequired: vault.isHardwareRequired(), // True if YubiKey needed to unlock
         });
         return;
 
@@ -945,8 +949,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         sendResponse(res);
         return;
       case INTERNAL_METHODS.GET_MNEMONIC:
-        // params: password (required for verification)
-        sendResponse(await vault.getMnemonic(payload.params?.[0]));
+        // params[0]: password (for password mode)
+        // params[1]: prfOutput array (for hardware mode - from YubiKey verification)
+        {
+          const mnemonicPassword = payload.params?.[0] as string;
+          const mnemonicPrfArray = payload.params?.[1] as number[] | undefined;
+          const mnemonicPrfOutput = mnemonicPrfArray
+            ? new Uint8Array(mnemonicPrfArray)
+            : undefined;
+          sendResponse(await vault.getMnemonic(mnemonicPassword, mnemonicPrfOutput));
+        }
         return;
 
       case INTERNAL_METHODS.GET_AUTO_LOCK:
@@ -1443,6 +1455,154 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           console.error('[Background] Transaction sending failed:', error);
           sendResponse({
             error: error instanceof Error ? error.message : 'Transaction sending failed',
+          });
+        }
+        return;
+      // ========================================================================
+      // Hardware Wallet Methods
+      // ========================================================================
+      case INTERNAL_METHODS.HW_GET_STATUS:
+        try {
+          const hwStatus = hardwareWallet.getStatus();
+          sendResponse({ ok: true, message: 'Status retrieved', status: hwStatus });
+        } catch (err) {
+          sendResponse({
+            ok: false,
+            message: err instanceof Error ? err.message : 'Failed to get status',
+          });
+        }
+        return;
+
+      case INTERNAL_METHODS.HW_SAVE_CREDENTIAL:
+        // Save a credential that was registered in popup (WebAuthn requires window context)
+        try {
+          const credential = payload.params?.[0];
+          if (!credential) {
+            sendResponse({ ok: false, message: 'Credential required' });
+            return;
+          }
+          await hardwareWallet.saveCredential(credential);
+          sendResponse({ ok: true, message: 'Credential saved' });
+        } catch (err) {
+          sendResponse({
+            ok: false,
+            message: err instanceof Error ? err.message : 'Failed to save credential',
+          });
+        }
+        return;
+
+      case INTERNAL_METHODS.HW_GET_CREDENTIALS:
+        // Get credentials for verification in popup (WebAuthn requires window context)
+        try {
+          const credentials = hardwareWallet.getCredentials();
+          sendResponse({ ok: true, message: 'Credentials retrieved', credentials });
+        } catch (err) {
+          sendResponse({
+            ok: false,
+            message: err instanceof Error ? err.message : 'Failed to get credentials',
+          });
+        }
+        return;
+
+      case INTERNAL_METHODS.HW_REMOVE_CREDENTIAL:
+        try {
+          const credentialId = payload.params?.[0] as string;
+          if (!credentialId) {
+            sendResponse({ ok: false, message: 'Credential ID required' });
+            return;
+          }
+          await hardwareWallet.removeCredential(credentialId);
+          sendResponse({ ok: true, message: 'Credential removed' });
+        } catch (err) {
+          sendResponse({
+            ok: false,
+            message: err instanceof Error ? err.message : 'Failed to remove credential',
+          });
+        }
+        return;
+
+      case INTERNAL_METHODS.HW_ENABLE_VAULT_ENCRYPTION:
+        // Enable hardware encryption on vault using PRF output from YubiKey
+        // PRF output is sent as array of bytes, we derive the key here
+        try {
+          const prfOutputArray = payload.params?.[0] as number[];
+          if (!prfOutputArray || !Array.isArray(prfOutputArray)) {
+            sendResponse({ ok: false, message: 'PRF output required' });
+            return;
+          }
+
+          // Derive AES key from PRF output (deriveKeyFromPRF is statically imported from prf-crypto)
+          const prfOutput = new Uint8Array(prfOutputArray);
+          const prfKey = await deriveKeyFromPRF(prfOutput);
+
+          // Enable hardware encryption on vault
+          const result = await vault.enableHardwareEncryption(prfKey);
+          if ('error' in result) {
+            sendResponse({ ok: false, message: result.error });
+          } else {
+            sendResponse({ ok: true, message: 'Hardware encryption enabled' });
+          }
+        } catch (err) {
+          sendResponse({
+            ok: false,
+            message: err instanceof Error ? err.message : 'Failed to enable hardware encryption',
+          });
+        }
+        return;
+
+      case INTERNAL_METHODS.HW_UNLOCK:
+        // Unlock vault using hardware key (PRF output from YubiKey)
+        try {
+          const hwPrfOutputArray = payload.params?.[0] as number[];
+          if (!hwPrfOutputArray || !Array.isArray(hwPrfOutputArray)) {
+            sendResponse({ ok: false, message: 'PRF output required for hardware unlock' });
+            return;
+          }
+
+          const hwPrfOutput = new Uint8Array(hwPrfOutputArray);
+          const hwPrfKey = await deriveKeyFromPRF(hwPrfOutput);
+
+          const hwUnlockResult = await vault.unlockWithHardwareKey(hwPrfKey);
+          sendResponse(hwUnlockResult);
+
+          if ('ok' in hwUnlockResult && hwUnlockResult.ok) {
+            manuallyLocked = false;
+            await chrome.storage.local.set({ [STORAGE_KEYS.MANUALLY_LOCKED]: false });
+            await persistUnlockSession();
+            await emitWalletEvent('connect', { chainId: 'nockchain-1' });
+          }
+        } catch (err) {
+          sendResponse({
+            ok: false,
+            message: err instanceof Error ? err.message : 'Hardware unlock failed',
+          });
+        }
+        return;
+
+      case INTERNAL_METHODS.HW_DISABLE:
+        // Disabling hardware encryption requires password to re-encrypt vault
+        // This ensures no account changes made while using hardware unlock are lost
+        try {
+          const disablePassword = payload.params?.[0] as string;
+          if (!disablePassword) {
+            sendResponse({ ok: false, message: 'Password required to disable hardware wallet' });
+            return;
+          }
+
+          // Re-encrypt vault with password (syncs any changes made while using hardware key)
+          const disableResult = await vault.disableHardwareEncryption(disablePassword);
+          if ('error' in disableResult) {
+            sendResponse({ ok: false, message: disableResult.error });
+            return;
+          }
+
+          // Clear hardware wallet credentials
+          await hardwareWallet.disable();
+          sendResponse({ ok: true, message: 'Hardware wallet disabled' });
+        } catch (err) {
+          sendResponse({
+            ok: false,
+            message: err instanceof Error ? err.message : 'Failed to disable hardware wallet',
           });
         }
         return;

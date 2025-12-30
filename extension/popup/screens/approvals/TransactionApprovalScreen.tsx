@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useStore } from '../../store';
 import { ChevronRightIcon } from '../../components/icons/ChevronRightIcon';
 import { AccountIcon } from '../../components/AccountIcon';
@@ -11,9 +12,13 @@ import {
 } from '../../../shared/constants';
 import { formatNock, formatNick } from '../../../shared/currency';
 import { useAutoRejectOnClose } from '../../hooks/useAutoRejectOnClose';
+import { useHardwareWallet } from '../../hooks/useHardwareWallet';
 
 export function TransactionApprovalScreen() {
   const { navigate, pendingTransactionRequest, setPendingTransactionRequest, wallet } = useStore();
+  const { status: hwStatus, verify: verifyHardware } = useHardwareWallet();
+  const [isApproving, setIsApproving] = useState(false);
+  const [error, setError] = useState('');
 
   if (!pendingTransactionRequest) {
     navigate('home');
@@ -34,9 +39,27 @@ export function TransactionApprovalScreen() {
   }
 
   async function handleApprove() {
-    await send(INTERNAL_METHODS.APPROVE_TRANSACTION, [id]);
-    setPendingTransactionRequest(null);
-    window.close();
+    setIsApproving(true);
+    setError('');
+
+    try {
+      // If hardware wallet is configured, require verification before signing
+      if (hwStatus?.enabled) {
+        const hwResult = await verifyHardware(`Sign transaction to ${truncateAddress(to)}`);
+        if (!hwResult.success) {
+          setError(hwResult.error || 'YubiKey verification required');
+          setIsApproving(false);
+          return;
+        }
+      }
+
+      await send(INTERNAL_METHODS.APPROVE_TRANSACTION, [id]);
+      setPendingTransactionRequest(null);
+      window.close();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to approve transaction');
+      setIsApproving(false);
+    }
   }
 
   const bg = 'var(--color-bg)';
@@ -145,6 +168,20 @@ export function TransactionApprovalScreen() {
               <div className="text-center text-xs py-2" style={{ color: textMuted }}>
                 Balance after: {formatNock(wallet.balance - total / NOCK_TO_NICKS)} NOCK
               </div>
+
+              {/* Error message */}
+              {error && (
+                <div className="text-center text-xs py-2" style={{ color: 'var(--color-red)' }}>
+                  {error}
+                </div>
+              )}
+
+              {/* Hardware wallet indicator */}
+              {hwStatus?.enabled && (
+                <div className="text-center text-xs py-2" style={{ color: textMuted }}>
+                  YubiKey verification required to sign
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -154,11 +191,11 @@ export function TransactionApprovalScreen() {
           className="px-4 py-2.5 shrink-0 flex gap-3"
           style={{ borderTop: `1px solid ${divider}` }}
         >
-          <button onClick={handleReject} className="btn-secondary flex-1">
+          <button onClick={handleReject} disabled={isApproving} className="btn-secondary flex-1">
             Reject
           </button>
-          <button onClick={handleApprove} className="btn-primary flex-1">
-            Approve
+          <button onClick={handleApprove} disabled={isApproving} className="btn-primary flex-1">
+            {isApproving ? (hwStatus?.enabled ? 'Touch YubiKey...' : 'Approving...') : 'Approve'}
           </button>
         </div>
       </div>

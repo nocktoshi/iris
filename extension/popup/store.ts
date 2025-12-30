@@ -41,6 +41,7 @@ export type Screen =
   | 'view-secret-phrase'
   | 'wallet-permissions'
   | 'wallet-settings'
+  | 'yubikey-settings'
   | 'wallet-styling'
   | 'about'
   | 'recovery-phrase'

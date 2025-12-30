@@ -131,6 +131,29 @@ export const INTERNAL_METHODS = {
 
   /** Get pending sign raw transaction request */
   GET_PENDING_RAW_TX_REQUEST: 'wallet:getPendingRawTxRequest',
+
+  // ===== Hardware Wallet (YubiKey) Methods =====
+
+  /** Get hardware wallet status */
+  HW_GET_STATUS: 'wallet:hwGetStatus',
+
+  /** Save a credential registered in popup to storage */
+  HW_SAVE_CREDENTIAL: 'wallet:hwSaveCredential',
+
+  /** Get credentials for verification (popup needs credential IDs) */
+  HW_GET_CREDENTIALS: 'wallet:hwGetCredentials',
+
+  /** Remove a hardware wallet credential */
+  HW_REMOVE_CREDENTIAL: 'wallet:hwRemoveCredential',
+
+  /** Enable hardware encryption on vault (after YubiKey with PRF registered) */
+  HW_ENABLE_VAULT_ENCRYPTION: 'wallet:hwEnableVaultEncryption',
+
+  /** Unlock vault using hardware key (YubiKey PRF) */
+  HW_UNLOCK: 'wallet:hwUnlock',
+
+  /** Disable hardware wallet entirely */
+  HW_DISABLE: 'wallet:hwDisable',
 } as const;
 
 // Re-export PROVIDER_METHODS for other files
@@ -184,6 +207,9 @@ export const ERROR_CODES = {
 
   /** Invalid parameters provided to method */
   INVALID_PARAMS: 'INVALID_PARAMS',
+
+  /** Hardware (YubiKey) required to unlock vault */
+  HARDWARE_REQUIRED: 'HARDWARE_REQUIRED',
 } as const;
 
 /**
@@ -228,6 +254,12 @@ export const STORAGE_KEYS = {
 
   /** Whether the user manually locked the wallet (survives SW restarts) */
   MANUALLY_LOCKED: 'manuallyLocked',
+
+  /** Hardware wallet configuration (YubiKey credentials, policy) */
+  HW_WALLET_CONFIG: 'hw_wallet_config',
+
+  /** PRF-wrapped encryption key (YubiKey key-wrapping mode) */
+  HW_WRAPPED_KEY: 'hw_wrapped_key',
 } as const;
 
 /**
